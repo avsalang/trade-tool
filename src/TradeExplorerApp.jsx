@@ -185,7 +185,12 @@ function emptyFeatureCollection() {
   return { type: "FeatureCollection", features: [] };
 }
 
-function buildMapPayload(flows, economies, selectedEconomyIndex = null) {
+function buildMapPayload(
+  flows,
+  economies,
+  selectedEconomyIndex = null,
+  fullNodeTotals = null,
+) {
   if (!flows.length) {
     return {
       lines: emptyFeatureCollection(),
@@ -261,10 +266,13 @@ function buildMapPayload(flows, economies, selectedEconomyIndex = null) {
 
   const nodeFeatures = [...nodes.values()].map((node) => {
     const economy = economies[node.economyIndex];
+    const fullTotals = fullNodeTotals?.get(node.economyIndex);
+    const supplierValue = fullTotals?.supplierValue ?? node.supplierValue;
+    const importerValue = fullTotals?.importerValue ?? node.importerValue;
     const role =
-      node.supplierValue > 0 && node.importerValue > 0
+      supplierValue > 0 && importerValue > 0
         ? "both"
-        : node.supplierValue > 0
+        : supplierValue > 0
           ? "supplier"
           : "importer";
     return {
@@ -278,7 +286,10 @@ function buildMapPayload(flows, economies, selectedEconomyIndex = null) {
         economyIndex: node.economyIndex,
         name: economy.name,
         role,
-        value: node.supplierValue + node.importerValue,
+        value: supplierValue + importerValue,
+        supplierValue,
+        importerValue,
+        valueBasis: fullTotals ? "full" : "displayed",
       },
     };
   });
@@ -547,7 +558,6 @@ function SupplierShareChange({ rows, startYear, endYear }) {
 function TrendSection({
   analysis,
   endYear,
-  onOpenSnapshot,
   onSelectYear,
   selectedYear,
   startYear,
@@ -573,30 +583,6 @@ function TrendSection({
           <p>
             Only economies with data in every selected year are included
           </p>
-        </div>
-        <div className="trend-snapshot-action">
-          <label className="trend-snapshot-picker">
-            <span>View another year</span>
-            <select
-              value={selectedYearInRange ? selectedYear : ""}
-              onChange={(event) => {
-                const nextYear = Number(event.target.value);
-                onSelectYear(Number.isFinite(nextYear) && nextYear ? nextYear : null);
-              }}
-              aria-label="Select a year to view as a snapshot"
-            >
-              <option value="">Select year</option>
-              {analysis.series.map((point) => (
-                <option key={point.year} value={point.year}>{point.year}</option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
-          </label>
-          {selectedYearInRange ? (
-            <button type="button" onClick={() => onOpenSnapshot(selectedYear)}>
-              View {selectedYear}
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -901,8 +887,11 @@ function TradeFlowNode(props) {
   return (
     <g
       {...rest}
-      onClick={() => onSelect?.(payload?.economyIndex)}
-      style={{ cursor: "pointer" }}
+      data-aggregated={payload?.aggregated ? "true" : undefined}
+      onClick={() => {
+        if (!payload?.aggregated) onSelect?.(payload?.economyIndex);
+      }}
+      style={{ cursor: payload?.aggregated ? "default" : "pointer" }}
     >
       <rect
         x={x}
@@ -976,6 +965,7 @@ function TradeFlowLink(props) {
   return (
     <path
       className={className}
+      data-aggregated={payload?.aggregated ? "true" : undefined}
       d={path}
       fill={payload?.color ?? SUPPLIER_COLORS[0]}
       fillOpacity={0.58}
@@ -1009,7 +999,9 @@ function getSankeyHover(entry, type) {
       y: (entry.sourceY + entry.targetY) / 2,
       title: `${sourceName} → ${targetName}`,
       value: formatUsdThousand(value),
-      subtitle: "Reported bilateral trade in the current map view",
+      subtitle: link.aggregated
+        ? "All remaining bilateral flows outside the named Sankey bands"
+        : "Reported bilateral trade in the current map view",
     };
   }
   const node = entry.payload;
@@ -1018,8 +1010,9 @@ function getSankeyHover(entry, type) {
     y: entry.y + entry.height / 2,
     title: node?.name || "Trade economy",
     value: formatUsdThousand(node?.totalValue || 0),
-    subtitle:
-      node?.role === "supplier"
+    subtitle: node?.aggregated
+      ? "Aggregated value of all remaining bilateral flows"
+      : node?.role === "supplier"
         ? "Supplier value in shown flows"
         : "Reported imports in shown flows",
   };
@@ -1029,6 +1022,7 @@ function TradeSankey({
   routes,
   economies,
   selectedEconomyIndex,
+  residualRows,
   onSelectEconomy,
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
@@ -1076,8 +1070,16 @@ function TradeSankey({
       );
     });
 
-    const connectedSuppliers = supplierIndexes.filter((economyIndex) =>
-      visibleSupplierTotals.has(economyIndex),
+    const residualBySupplier = new Map(
+      (residualRows || []).filter(([economyIndex]) => economyIndex >= 0),
+    );
+    const otherSupplierResidual =
+      (residualRows || []).find(([economyIndex]) => economyIndex === -1)?.[1] ||
+      0;
+    const connectedSuppliers = supplierIndexes.filter(
+      (economyIndex) =>
+        visibleSupplierTotals.has(economyIndex) ||
+        (residualBySupplier.get(economyIndex) || 0) > 0,
     );
     const connectedImporters = importerIndexes.filter((economyIndex) =>
       visibleImporterTotals.has(economyIndex),
@@ -1087,7 +1089,9 @@ function TradeSankey({
         name: economies[economyIndex]?.name || "Unknown",
         role: "supplier",
         economyIndex,
-        totalValue: visibleSupplierTotals.get(economyIndex),
+        totalValue:
+          (visibleSupplierTotals.get(economyIndex) || 0) +
+          (residualBySupplier.get(economyIndex) || 0),
         color: SUPPLIER_COLORS[index % SUPPLIER_COLORS.length],
       })),
       ...connectedImporters.map((economyIndex) => ({
@@ -1115,15 +1119,66 @@ function TradeSankey({
         SUPPLIER_COLORS[0],
     }));
 
+    const namedResidualTotal = [...residualBySupplier.values()].reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const residualValue = namedResidualTotal + otherSupplierResidual;
+    if (residualValue > 0) {
+      const otherImporterIndex = nodes.length;
+      nodes.push({
+        name: "Other economies",
+        role: "importer",
+        economyIndex: null,
+        totalValue: residualValue,
+        color: "#CBD5E1",
+        aggregated: true,
+      });
+      connectedSuppliers.forEach((economyIndex) => {
+        const value = residualBySupplier.get(economyIndex) || 0;
+        if (value <= 0) return;
+        const source = nodeIndex.get(`supplier-${economyIndex}`);
+        links.push({
+          source,
+          target: otherImporterIndex,
+          value,
+          sourceName: economies[economyIndex]?.name || "Unknown",
+          targetName: "Other importing economies",
+          color: nodes[source]?.color || SUPPLIER_COLORS[0],
+          aggregated: true,
+        });
+      });
+      if (otherSupplierResidual > 0) {
+        const otherSupplierIndex = nodes.length;
+        nodes.push({
+          name: "Other economies",
+          role: "supplier",
+          economyIndex: null,
+          totalValue: otherSupplierResidual,
+          color: "#94A3B8",
+          aggregated: true,
+        });
+        links.push({
+          source: otherSupplierIndex,
+          target: otherImporterIndex,
+          value: otherSupplierResidual,
+          sourceName: "Other supplier economies",
+          targetName: "Other importing economies",
+          color: "#CBD5E1",
+          aggregated: true,
+        });
+      }
+    }
+
     return {
       nodes,
       links,
       maximumColumnNodes: Math.max(
-        connectedSuppliers.length,
-        connectedImporters.length,
+        connectedSuppliers.length + (otherSupplierResidual > 0 ? 1 : 0),
+        connectedImporters.length + (residualValue > 0 ? 1 : 0),
       ),
     };
-  }, [economies, routes]);
+  }, [economies, residualRows, routes]);
 
   if (!sankeyData.links.length) {
     return <div className="empty-state">No mapped trade flows available.</div>;
@@ -1137,7 +1192,10 @@ function TradeSankey({
     <TradeFlowNode
       {...props}
       onSelect={onSelectEconomy}
-      isActive={selectedEconomyIndex === props.payload?.economyIndex}
+      isActive={
+        props.payload?.economyIndex !== null &&
+        selectedEconomyIndex === props.payload?.economyIndex
+      }
       isDimmed={
         selectedEconomyIndex !== null &&
         selectedEconomyIndex !== props.payload?.economyIndex
@@ -1539,6 +1597,19 @@ export default function TradeExplorerApp() {
       })
       .sort((left, right) => right.value - left.value);
 
+    const fullSupplierTotals = storedSummary
+      ? new Map(storedSummary.mapSupplierTotals || [])
+      : supplierTotals;
+    const mapNodeTotals = new Map();
+    new Set([...worldByImporter.keys(), ...fullSupplierTotals.keys()]).forEach(
+      (economyIndex) => {
+        mapNodeTotals.set(economyIndex, {
+          supplierValue: fullSupplierTotals.get(economyIndex) || 0,
+          importerValue: worldByImporter.get(economyIndex) || 0,
+        });
+      },
+    );
+
     return {
       totalImported,
       totalExported,
@@ -1548,6 +1619,8 @@ export default function TradeExplorerApp() {
       suppliers,
       importerHhi,
       routes,
+      mapNodeTotals,
+      sankeyResiduals: storedSummary?.sankeyResiduals || {},
     };
   }, [dataset, selectedProduct, year]);
 
@@ -1755,8 +1828,9 @@ export default function TradeExplorerApp() {
         mapFlows,
         dataset?.economies || [],
         selectedEconomyIndex,
+        analysis?.mapNodeTotals,
       ),
-    [dataset, mapFlows, selectedEconomyIndex],
+    [analysis?.mapNodeTotals, dataset, mapFlows, selectedEconomyIndex],
   );
 
   const selectedRoute = useMemo(
@@ -1867,7 +1941,7 @@ export default function TradeExplorerApp() {
               <div class="map-popup__dot" style="background:#0f172a"></div>
               <div>
                 <strong>${escapeHtml(props.name)}</strong>
-                <span>Click to show connected trade flows</span>
+                <span>Total trade across the full dataset</span>
                 <p>${escapeHtml(formatUsdThousand(Number(props.value), 2))}</p>
               </div>
             </div>`,
@@ -1970,11 +2044,6 @@ export default function TradeExplorerApp() {
       });
       if (nextView === "snapshot") mapRef.current?.resize();
     });
-  };
-
-  const openSnapshotYear = (nextYear) => {
-    selectSnapshotYear(nextYear);
-    switchAnalysisView("snapshot");
   };
 
   const resetFilters = () => {
@@ -2324,8 +2393,8 @@ export default function TradeExplorerApp() {
               <span><i className="legend-both" />Both roles</span>
               <small>
                 {selectedEconomy
-                  ? "Blue lines end in the selected economy; orange lines start there. Line width represents reported value."
-                  : "Line width represents importer-reported bilateral value. Click a country to distinguish its import and export connections."}
+                  ? "Node size uses total trade across the full dataset. Blue lines end in the selected economy; orange lines start there."
+                  : "Node size uses total trade across the full dataset. Line width represents the displayed importer-reported bilateral value."}
               </small>
             </div>
             <RouteDetail
@@ -2357,7 +2426,7 @@ export default function TradeExplorerApp() {
                   : connectionMode === "exports"
                     ? `Destinations reporting imports from ${selectedEconomy.name}`
                     : `Shown connections involving ${selectedEconomy.name}`
-                : "Largest supplier-to-importer links shown on the map"
+                : "Named bands show leading routes; remaining destinations and suppliers are grouped under Other economies"
             }
             className="sankey-panel"
           >
@@ -2365,6 +2434,11 @@ export default function TradeExplorerApp() {
               routes={mapFlows}
               economies={dataset.economies}
               selectedEconomyIndex={selectedEconomyIndex}
+              residualRows={
+                selectedEconomyIndex === null
+                  ? analysis.sankeyResiduals?.[flowLimit] || []
+                  : []
+              }
               onSelectEconomy={(economyIndex) => {
                 setSelectedRouteId(null);
                 setConnectionMode("all");
@@ -2432,7 +2506,6 @@ export default function TradeExplorerApp() {
                 endYear={trendEndYear}
                 selectedYear={selectedTrendYear}
                 onSelectYear={setSelectedTrendYear}
-                onOpenSnapshot={openSnapshotYear}
               />
             ) : (
               <div className="empty-state">No trend data available.</div>

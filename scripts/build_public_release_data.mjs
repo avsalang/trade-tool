@@ -12,6 +12,9 @@ const privateDirectory = path.join(
 const publicDirectory = path.join(projectDirectory, "public", "data");
 const TOP_ROUTE_LIMIT = 100;
 const STAGE_LEADER_LIMIT = 3;
+const TRADE_SANKEY_LIMITS = [25, 50, 100];
+const TRADE_SANKEY_NODE_LIMIT = 8;
+const TRADE_SANKEY_LINK_LIMIT = 32;
 
 function finiteValue(value) {
   return Number.isFinite(value) ? value : null;
@@ -23,6 +26,59 @@ function topEntries(totals, countries, limit = STAGE_LEADER_LIMIT) {
     .sort((left, right) => right[1] - left[1])
     .slice(0, limit)
     .map(([index]) => index);
+}
+
+function buildTradeSankeyResiduals(validBilateral, topRoutes) {
+  const residuals = {};
+  TRADE_SANKEY_LIMITS.forEach((limit) => {
+    const candidateRoutes = topRoutes.slice(0, limit);
+    const candidateSupplierTotals = new Map();
+    const candidateImporterTotals = new Map();
+    candidateRoutes.forEach((route) => {
+      candidateSupplierTotals.set(
+        route.exporterIndex,
+        (candidateSupplierTotals.get(route.exporterIndex) || 0) + route.value,
+      );
+      candidateImporterTotals.set(
+        route.importerIndex,
+        (candidateImporterTotals.get(route.importerIndex) || 0) + route.value,
+      );
+    });
+    const leading = (totals) =>
+      [...totals.entries()]
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, TRADE_SANKEY_NODE_LIMIT)
+        .map(([economyIndex]) => economyIndex);
+    const leadingSuppliers = new Set(leading(candidateSupplierTotals));
+    const leadingImporters = new Set(leading(candidateImporterTotals));
+    const namedRoutes = candidateRoutes
+      .filter(
+        (route) =>
+          leadingSuppliers.has(route.exporterIndex) &&
+          leadingImporters.has(route.importerIndex),
+      )
+      .slice(0, TRADE_SANKEY_LINK_LIMIT);
+    const namedKeys = new Set(
+      namedRoutes.map((route) => `${route.exporterIndex}|${route.importerIndex}`),
+    );
+    const supplierResiduals = new Map();
+    let otherSupplierResidual = 0;
+    validBilateral.forEach((route) => {
+      if (namedKeys.has(`${route.exporterIndex}|${route.importerIndex}`)) return;
+      if (leadingSuppliers.has(route.exporterIndex)) {
+        supplierResiduals.set(
+          route.exporterIndex,
+          (supplierResiduals.get(route.exporterIndex) || 0) + route.value,
+        );
+      } else {
+        otherSupplierResidual += route.value;
+      }
+    });
+    const rows = [...supplierResiduals.entries()].filter(([, value]) => value > 0);
+    if (otherSupplierResidual > 0) rows.push([-1, otherSupplierResidual]);
+    residuals[limit] = rows;
+  });
+  return residuals;
 }
 
 function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) {
@@ -101,6 +157,16 @@ function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) 
   const topRoutes = [...validBilateral]
     .sort((left, right) => right.value - left.value)
     .slice(0, TOP_ROUTE_LIMIT);
+  const mapSupplierIndexes = new Set(
+    topRoutes.map((route) => route.exporterIndex),
+  );
+  const mapSupplierTotals = [...supplierTotals.entries()].filter(
+    ([economyIndex]) => mapSupplierIndexes.has(economyIndex),
+  );
+  const sankeyResiduals = buildTradeSankeyResiduals(
+    validBilateral,
+    topRoutes,
+  );
 
   return {
     summary: {
@@ -112,6 +178,8 @@ function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) 
       importers,
       suppliers,
       importerHhi,
+      mapSupplierTotals,
+      sankeyResiduals,
     },
     topRoutes,
   };
