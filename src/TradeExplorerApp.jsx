@@ -2514,10 +2514,6 @@ export default function TradeExplorerApp() {
                 reported
               </span>
             </div>
-            <p>
-              Missing values are not treated as zero. Supplier totals cover
-              only destinations that reported imports.
-            </p>
           </footer>
         </div>
       </main>
