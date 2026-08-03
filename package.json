@@ -22,6 +22,7 @@
     "recharts": "^2.15.2"
   },
   "devDependencies": {
+    "@emnapi/runtime": "^1.11.3",
     "@vitejs/plugin-react": "6.0.0",
     "@vitejs/plugin-rsc": "0.5.26",
     "playwright-core": "^1.61.1",
