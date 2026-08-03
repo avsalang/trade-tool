@@ -980,15 +980,6 @@ function buildStageChain(data, reportingSide, material) {
       uniqueStageCountries(destinations),
     );
     namedRouteSets.set(profile.stage, namedRoutes);
-    profile.namedValue = profile.links.reduce(
-      (sum, link) =>
-        sum +
-        (namedRoutes.has(`${link[3]}|${link[4]}`) ? link[5] : 0),
-      0,
-    );
-    profile.namedCoverage = profile.total
-      ? profile.namedValue / profile.total
-      : 0;
   });
 
   const columnScores = new Map([[1, exporterTotals.get(1)]]);
@@ -1542,9 +1533,6 @@ export function StageValueChainSection({ data }) {
                 <i style={{ background: STAGE_COLUMN_COLORS[profile.stage] }} />
                 {STAGE_NAMES[profile.stage]}{" "}
                 <strong>{formatComtradeUsd(profile.total)}</strong>
-                <small>
-                  {(profile.namedCoverage * 100).toFixed(0)}% named
-                </small>
               </span>
             ))}
           </div>
