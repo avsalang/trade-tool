@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
   ReferenceArea,
@@ -487,18 +484,6 @@ function TrendValueTooltip({ active, payload }) {
   );
 }
 
-function GrowthTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const point = payload[0].payload;
-  return (
-    <div className="trend-tooltip">
-      <strong>{point.year}</strong>
-      <span>{formatSignedPercent(point.growth)}</span>
-      <small>Annual change for economies included in every year</small>
-    </div>
-  );
-}
-
 function HhiTrendTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const point = payload[0].payload;
@@ -725,57 +710,6 @@ function TrendSection({
                       isAnimationActive={false}
                     />
                   </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="trend-chart-card">
-              <div className="trend-chart-card__heading">
-                <div>
-                  <h3>Annual import growth</h3>
-                  <p>Change from the previous year for the same cohort</p>
-                </div>
-              </div>
-              <div className="trend-chart trend-chart--growth">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={analysis.series}
-                    margin={{ top: 8, right: 22, bottom: 4, left: 12 }}
-                    onClick={selectChartYear}
-                  >
-                    <CartesianGrid stroke="#e2e8f0" vertical={false} />
-                    <XAxis
-                      dataKey="year"
-                      axisLine={false}
-                      tickLine={false}
-                      minTickGap={22}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => `${Math.round(value * 100)}%`}
-                      width={70}
-                    />
-                    <ReferenceLine y={0} stroke="#64748b" />
-                    <Tooltip
-                      content={<GrowthTooltip />}
-                      cursor={{ fill: "#f1f5f9" }}
-                    />
-                    <Bar dataKey="growth" radius={[4, 4, 0, 0]}>
-                      {analysis.series.map((point) => (
-                        <Cell
-                          key={point.year}
-                          fill={
-                            point.growth === null
-                              ? "transparent"
-                              : point.growth >= 0
-                                ? "#0f9f6e"
-                                : "#dc4c4c"
-                          }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>

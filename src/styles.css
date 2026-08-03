@@ -3327,11 +3327,6 @@ body {
   padding: 10px 8px 4px 0;
 }
 
-.trend-chart--growth {
-  height: 205px;
-  padding: 8px 8px 4px 0;
-}
-
 .trend-chart--hhi {
   height: 272px;
   padding: 8px 8px 0 0;
@@ -3548,10 +3543,6 @@ body {
 
   .trend-chart--value {
     height: 260px;
-  }
-
-  .trend-chart--growth {
-    height: 190px;
   }
 
   .supplier-shift__row {
