@@ -1,5 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import "../src/styles.css";
+import "../src/filter-layout.css";
 
 export const metadata = {
   title: "ATO Transport Product Trade Flow Explorer",

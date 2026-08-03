@@ -454,6 +454,81 @@ function Segment({ active, children, onClick, disabled = false }) {
   );
 }
 
+function GroupCheckbox({ checked, indeterminate, onChange }) {
+  const checkboxRef = useRef(null);
+  useEffect(() => {
+    if (checkboxRef.current) checkboxRef.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return (
+    <input
+      ref={checkboxRef}
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+    />
+  );
+}
+
+function ProductMultiSelect({ groups, selectedCodes, onToggle, onToggleGroup }) {
+  const selectedSet = new Set(selectedCodes);
+  const selectedLabel =
+    selectedCodes.length === 1
+      ? `HS ${selectedCodes[0]}`
+      : `${selectedCodes.length} products selected`;
+
+  return (
+    <details className="product-multiselect">
+      <summary>
+        <span>
+          <small>Product codes</small>
+          <strong>{selectedLabel}</strong>
+        </span>
+        <ChevronDown size={15} />
+      </summary>
+      <div className="product-multiselect__menu">
+        <p>Choose one or more non-overlapping HS codes</p>
+        <div className="product-multiselect__options">
+          {groups.map((group) => (
+            <fieldset key={group.label}>
+              <legend>
+                <span>{group.label}</span>
+                <label className="product-multiselect__group-toggle">
+                  <GroupCheckbox
+                    checked={group.products.every((product) => selectedSet.has(product.code))}
+                    indeterminate={
+                      group.products.some((product) => selectedSet.has(product.code)) &&
+                      !group.products.every((product) => selectedSet.has(product.code))
+                    }
+                    onChange={() => onToggleGroup(group.products.map((product) => product.code))}
+                  />
+                  <span>Select all</span>
+                </label>
+              </legend>
+              {group.products.map((product) => (
+                <label key={product.code}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSet.has(product.code)}
+                    onChange={() => onToggle(product.code)}
+                  />
+                  <span>
+                    <strong>HS {product.code}</strong>
+                    <small>{product.selectorLabel || product.label}</small>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ))}
+        </div>
+        <small className="product-multiselect__note">
+          Individual overlapping codes replace one another. When a whole group
+          is selected, broader parent totals are counted once.
+        </small>
+      </div>
+    </details>
+  );
+}
+
 function KpiCard({ label, value, subtext, children }) {
   return (
     <article className="kpi-card">
@@ -559,9 +634,14 @@ function TrendSection({
   analysis,
   endYear,
   onSelectYear,
+  reporterName,
+  reportingMode,
   selectedYear,
   startYear,
 }) {
+  const isExports = reportingMode === "exports";
+  const flowLabel = isExports ? "Export" : "Import";
+  const partnerLabel = isExports ? "destination" : "supplier";
   const selectedYearInRange =
     selectedYear >= startYear && selectedYear <= endYear;
   const hhiMaximum = Math.max(
@@ -579,9 +659,11 @@ function TrendSection({
     <section className="trend-panel" aria-labelledby="trend-panel-title">
       <header className="trend-panel__header">
         <div>
-          <h2 id="trend-panel-title">Import trends</h2>
+          <h2 id="trend-panel-title">{flowLabel} trends</h2>
           <p>
-            Only economies with data in every selected year are included
+            {reporterName
+              ? `Reported values for ${reporterName}`
+              : "Only economies with data in every selected year are included"}
           </p>
         </div>
       </header>
@@ -589,17 +671,17 @@ function TrendSection({
       <div className="trend-panel__body">
         <div className="trend-coverage">
           <article>
-            <span>Economies reporting in {startYear}</span>
-            <strong>{analysis.startReporterCount}</strong>
+            <span>{reporterName ? `Data available in ${startYear}` : `Economies reporting in ${startYear}`}</span>
+            <strong>{reporterName ? (analysis.startReporterCount ? "Yes" : "No") : analysis.startReporterCount}</strong>
           </article>
           <article>
-            <span>Economies reporting in {endYear}</span>
-            <strong>{analysis.endReporterCount}</strong>
+            <span>{reporterName ? `Data available in ${endYear}` : `Economies reporting in ${endYear}`}</span>
+            <strong>{reporterName ? (analysis.endReporterCount ? "Yes" : "No") : analysis.endReporterCount}</strong>
           </article>
           <div>
-            <strong>{analysis.comparableCount} economies in all years</strong>
+            <strong>{reporterName ? (analysis.comparableCount ? "Complete selected period" : "Incomplete selected period") : `${analysis.comparableCount} economies in all years`}</strong>
             <span>
-              Included in every year from {startYear} to {endYear}
+              {reporterName ? "Selected reporting period" : `Included in every year from ${startYear} to ${endYear}`}
             </span>
           </div>
         </div>
@@ -650,10 +732,9 @@ function TrendSection({
             <div className="trend-chart-card trend-chart-card--value">
               <div className="trend-chart-card__heading">
                 <div>
-                  <h3>Import value for economies in all years</h3>
+                  <h3>{flowLabel} value for economies in all years</h3>
                   <p>Reported World totals · current US$ thousand</p>
                 </div>
-                <span>Choose a year to view its detailed snapshot</span>
               </div>
               <div className="trend-chart trend-chart--value">
                 <ResponsiveContainer width="100%" height="100%">
@@ -701,25 +782,27 @@ function TrendSection({
             </div>
 
             <div className="trend-detail-grid">
+              {!reporterName ? (
               <div className="trend-chart-card">
                 <div className="trend-chart-card__heading">
                   <div>
-                    <h3>Supplier market-share change</h3>
-                    <p>Five leading suppliers across the two endpoint years</p>
+                    <h3>{isExports ? "Destination" : "Supplier"} market-share change</h3>
+                    <p>Five leading {partnerLabel}s across the two endpoint years</p>
                   </div>
                 </div>
                 <SupplierShareChange
-                  rows={analysis.supplierShareChanges}
+                  rows={analysis.partnerShareChanges}
                   startYear={startYear}
                   endYear={endYear}
                 />
               </div>
+              ) : null}
 
-              <div className="trend-chart-card">
+              <div className={`trend-chart-card ${reporterName ? "trend-chart-card--wide" : ""}`}>
                 <div className="trend-chart-card__heading">
                   <div>
-                    <h3>Supplier concentration trend</h3>
-                    <p>HHI for economies included throughout the period</p>
+                    <h3>{isExports ? "Destination" : "Supplier"} concentration trend</h3>
+                    <p>Partner HHI for the selected reporting view</p>
                   </div>
                 </div>
                 <div className="trend-chart trend-chart--hhi">
@@ -794,8 +877,9 @@ function TrendSection({
           </>
         ) : (
           <div className="empty-state">
-            No economies have data for every selected year. Choose a shorter
-            period.
+            {reporterName
+              ? `${reporterName} does not have data for every selected year. Choose a shorter period.`
+              : "No economies have data for every selected year. Choose a shorter period."}
           </div>
         )}
       </div>
@@ -1242,9 +1326,9 @@ function TradeSankey({
   );
 }
 
-function HhiChart({ rows }) {
+function HhiChart({ rows, reporterLabel = "importer" }) {
   if (!rows.length) {
-    return <div className="empty-state">No importer HHI values available.</div>;
+    return <div className="empty-state">No {reporterLabel} HHI values available.</div>;
   }
   return (
     <>
@@ -1313,14 +1397,14 @@ function RouteTable({ rows, onSelect }) {
   );
 }
 
-function RouteDetail({ route, product, year, onClose }) {
+function RouteDetail({ route, productLabel, reportingMode, year, onClose }) {
   if (!route) return null;
   return (
     <aside className="detail-panel" aria-label="Selected trade route">
       <div className="detail-header">
         <div>
           <h2>{route.supplierName} → {route.importerName}</h2>
-          <p>HS {product.code} · {year}</p>
+          <p>{productLabel} · {year}</p>
         </div>
         <button
           className="icon-button"
@@ -1333,7 +1417,9 @@ function RouteDetail({ route, product, year, onClose }) {
       </div>
       <div className="detail-scroll">
         <div className="route-value-block">
-          <span>Reported bilateral import value</span>
+          <span>
+            Reporter-declared bilateral {reportingMode === "exports" ? "export" : "import"} value
+          </span>
           <strong>{formatDetailedUsd(route.value)}</strong>
         </div>
         <section className="detail-section">
@@ -1344,20 +1430,21 @@ function RouteDetail({ route, product, year, onClose }) {
               <dd>{formatPercent(route.share)}</dd>
             </div>
             <div>
-              <dt>Share of importer’s total</dt>
-              <dd>{formatPercent(route.importerShare)}</dd>
+              <dt>Share of reporter’s World total</dt>
+              <dd>{formatPercent(route.reporterShare)}</dd>
             </div>
             <div>
-              <dt>Importer World total</dt>
-              <dd>{formatUsdThousand(route.importerWorld)}</dd>
+              <dt>Reporter World total</dt>
+              <dd>{formatUsdThousand(route.reporterWorld)}</dd>
             </div>
           </dl>
         </section>
         <section className="detail-section">
           <h3>Interpretation</h3>
           <p>
-            The supplier is reported by the importing economy. This is not the
-            supplier’s complete global export value.
+            {reportingMode === "exports"
+              ? "The exporting economy reports this destination and value."
+              : "The importing economy reports this supplier and value."}
           </p>
         </section>
       </div>
@@ -1365,14 +1452,360 @@ function RouteDetail({ route, product, year, onClose }) {
   );
 }
 
+function addEntries(target, entries = []) {
+  entries.forEach(([key, value]) => {
+    if (Number.isFinite(value)) target.set(key, (target.get(key) || 0) + value);
+  });
+}
+
+function rankedEconomies(totals, economies, denominator) {
+  return [...totals.entries()]
+    .filter(([, value]) => value > 0)
+    .map(([economyIndex, value]) => ({
+      economyIndex,
+      name: economies[economyIndex]?.name || "Unknown",
+      iso3: economies[economyIndex]?.iso3,
+      value,
+      share: denominator ? value / denominator : 0,
+    }))
+    .sort((left, right) => right.value - left.value);
+}
+
+function buildSnapshotAnalysis(
+  dataset,
+  reportingMode,
+  productIndexes,
+  yearIndex,
+  reporterEconomyIndex = null,
+) {
+  const view = dataset.reportingViews[reportingMode];
+  const selectedSet = new Set(productIndexes);
+  const summaries = productIndexes
+    .map((productIndex) => view.snapshotSummaries?.[productIndex]?.[yearIndex])
+    .filter(Boolean);
+  const reporterTotals = new Map();
+  const partnerTotals = new Map();
+  const reporterHhiParts = new Map();
+  const reporterIndexes = new Set();
+  const leadingRouteTotals = new Map();
+  let totalReported = 0;
+  let totalBilateral = 0;
+
+  summaries.forEach((summary) => {
+    const productReporterTotals = new Map(summary.reporterTotals || []);
+    const selectedReporterTotals = (summary.reporterTotals || []).filter(
+      ([reporterIndex]) =>
+        reporterEconomyIndex === null || reporterIndex === reporterEconomyIndex,
+    );
+    totalReported += selectedReporterTotals.reduce(
+      (sum, [, value]) => sum + value,
+      0,
+    );
+    if (reporterEconomyIndex === null) {
+      totalBilateral += summary.totalBilateral || 0;
+      addEntries(partnerTotals, summary.partnerTotals);
+    }
+    addEntries(reporterTotals, selectedReporterTotals);
+    (summary.reporterHhi || []).forEach(
+      ([reporterIndex, hhi, topPartnerIndex, topPartnerValue = 0]) => {
+      if (
+        reporterEconomyIndex !== null &&
+        reporterIndex !== reporterEconomyIndex
+      ) return;
+      const weight = productReporterTotals.get(reporterIndex) || 0;
+      if (!weight) return;
+      const item = reporterHhiParts.get(reporterIndex) || {
+        value: 0,
+        weightedHhi: 0,
+        topPartnerIndex: null,
+        topPartnerWeight: -1,
+      };
+      item.value += weight;
+      item.weightedHhi += hhi * weight;
+      if (weight > item.topPartnerWeight) {
+        item.topPartnerWeight = weight;
+        item.topPartnerIndex = topPartnerIndex;
+      }
+      reporterHhiParts.set(reporterIndex, item);
+      if (topPartnerIndex !== null && topPartnerValue > 0) {
+        const supplierIndex =
+          reportingMode === "exports" ? reporterIndex : topPartnerIndex;
+        const importerIndex =
+          reportingMode === "exports" ? topPartnerIndex : reporterIndex;
+        const key = `${supplierIndex}|${importerIndex}`;
+        leadingRouteTotals.set(
+          key,
+          (leadingRouteTotals.get(key) || 0) + topPartnerValue,
+        );
+      }
+    });
+    selectedReporterTotals.forEach(([reporterIndex]) =>
+      reporterIndexes.add(reporterIndex),
+    );
+  });
+
+  const routeTotals = new Map();
+  view.records.forEach(([productIndex, importerIndex, exporterIndex, values]) => {
+    if (!selectedSet.has(productIndex)) return;
+    const recordReporterIndex =
+      reportingMode === "exports" ? exporterIndex : importerIndex;
+    if (
+      reporterEconomyIndex !== null &&
+      recordReporterIndex !== reporterEconomyIndex
+    ) return;
+    const value = values[yearIndex];
+    if (!Number.isFinite(value) || value <= 0) return;
+    const key = `${exporterIndex}|${importerIndex}`;
+    const row = routeTotals.get(key) || {
+      supplierIndex: exporterIndex,
+      importerIndex,
+      value: 0,
+    };
+    row.value += value;
+    routeTotals.set(key, row);
+  });
+  if (reporterEconomyIndex !== null) {
+    leadingRouteTotals.forEach((value, key) => {
+      const [supplierIndex, importerIndex] = key.split("|").map(Number);
+      const published = routeTotals.get(key);
+      if (!published || published.value < value) {
+        routeTotals.set(key, { supplierIndex, importerIndex, value });
+      }
+    });
+    totalBilateral = [...routeTotals.values()].reduce(
+      (sum, row) => sum + row.value,
+      0,
+    );
+    routeTotals.forEach((row) => {
+      const partnerIndex =
+        reportingMode === "exports" ? row.importerIndex : row.supplierIndex;
+      partnerTotals.set(
+        partnerIndex,
+        (partnerTotals.get(partnerIndex) || 0) + row.value,
+      );
+    });
+  }
+
+  const routes = [...routeTotals.values()]
+    .map((row) => {
+      const reporterIndex =
+        reportingMode === "exports" ? row.supplierIndex : row.importerIndex;
+      const reporterWorld = reporterTotals.get(reporterIndex) || 0;
+      return {
+        ...row,
+        id: `${row.supplierIndex}-${row.importerIndex}`,
+        supplierName: dataset.economies[row.supplierIndex]?.name || "Unknown",
+        importerName: dataset.economies[row.importerIndex]?.name || "Unknown",
+        share: (reporterEconomyIndex === null ? totalBilateral : totalReported)
+          ? row.value /
+            (reporterEconomyIndex === null ? totalBilateral : totalReported)
+          : 0,
+        reporterWorld,
+        reporterShare: reporterWorld ? row.value / reporterWorld : 0,
+      };
+    })
+    .sort((left, right) => right.value - left.value);
+
+  const reporterHhi = [...reporterHhiParts.entries()]
+    .map(([reporterIndex, item]) => ({
+      importerIndex: reporterIndex,
+      name: dataset.economies[reporterIndex]?.name || "Unknown",
+      hhi: item.value ? item.weightedHhi / item.value : 0,
+      topSupplierName:
+        item.topPartnerIndex === null
+          ? "No partners"
+          : dataset.economies[item.topPartnerIndex]?.name || "Unknown",
+    }))
+    .sort((left, right) => right.hhi - left.hhi);
+  const overallHhi =
+    reporterEconomyIndex === null
+      ? [...partnerTotals.values()].reduce((sum, value) => {
+          const share = totalBilateral ? value / totalBilateral : 0;
+          return sum + share ** 2 * 10_000;
+        }, 0)
+      : reporterHhi.reduce(
+          (sum, row) =>
+            sum + row.hhi * (reporterTotals.get(row.importerIndex) || 0),
+          0,
+        ) / (totalReported || 1);
+  const mapNodeTotals = new Map();
+  new Set([...reporterTotals.keys(), ...partnerTotals.keys()]).forEach(
+    (economyIndex) => {
+      mapNodeTotals.set(economyIndex, {
+        supplierValue:
+          reportingMode === "exports"
+            ? reporterTotals.get(economyIndex) || 0
+            : partnerTotals.get(economyIndex) || 0,
+        importerValue:
+          reportingMode === "exports"
+            ? partnerTotals.get(economyIndex) || 0
+            : reporterTotals.get(economyIndex) || 0,
+      });
+    },
+  );
+
+  return {
+    totalReported,
+    totalBilateral,
+    reporters: reporterIndexes.size,
+    overallHhi,
+    reporterRanking: rankedEconomies(reporterTotals, dataset.economies, totalReported),
+    partnerRanking: rankedEconomies(
+      partnerTotals,
+      dataset.economies,
+      reporterEconomyIndex === null ? totalBilateral : totalReported,
+    ),
+    reporterHhi,
+    routes,
+    mapNodeTotals,
+    sankeyResiduals: productIndexes.length === 1 ? summaries[0]?.sankeyResiduals || {} : {},
+  };
+}
+
+function intersectSets(sets) {
+  if (!sets.length) return new Set();
+  const result = new Set(sets[0]);
+  sets.slice(1).forEach((set) => {
+    [...result].forEach((value) => {
+      if (!set.has(value)) result.delete(value);
+    });
+  });
+  return result;
+}
+
+function buildTrendAnalysis(
+  dataset,
+  reportingMode,
+  productIndexes,
+  selectedYears,
+  reporterEconomyIndex = null,
+) {
+  const view = dataset.reportingViews[reportingMode];
+  const yearIndexes = selectedYears.map((year) => dataset.years.indexOf(year));
+  const summaryAt = (productIndex, yearIndex) =>
+    view.snapshotSummaries?.[productIndex]?.[yearIndex];
+  const comparableSets = [];
+  productIndexes.forEach((productIndex) => {
+    yearIndexes.forEach((yearIndex) => {
+      comparableSets.push(
+        new Set((summaryAt(productIndex, yearIndex)?.reporterTotals || []).map(([key]) => key)),
+      );
+    });
+  });
+  const comparableReporters = intersectSets(comparableSets);
+  if (
+    reporterEconomyIndex !== null &&
+    comparableReporters.has(reporterEconomyIndex)
+  ) {
+    [...comparableReporters].forEach((reporterIndex) => {
+      if (reporterIndex !== reporterEconomyIndex) comparableReporters.delete(reporterIndex);
+    });
+  } else if (reporterEconomyIndex !== null) {
+    comparableReporters.clear();
+  }
+  const sharesByYear = new Map();
+  const series = selectedYears.map((year, position) => {
+    const yearIndex = yearIndexes[position];
+    let value = 0;
+    const partnerTotals = new Map();
+    let weightedReporterHhi = 0;
+    let reporterHhiWeight = 0;
+    productIndexes.forEach((productIndex) => {
+      const summary = summaryAt(productIndex, yearIndex);
+      const productReporterTotals = new Map(summary?.reporterTotals || []);
+      (summary?.reporterTotals || []).forEach(([reporterIndex, reporterValue]) => {
+        if (comparableReporters.has(reporterIndex)) value += reporterValue;
+      });
+      if (reporterEconomyIndex === null) {
+        addEntries(partnerTotals, summary?.partnerTotals);
+      } else {
+        (summary?.reporterHhi || []).forEach(([reporterIndex, hhi]) => {
+          if (!comparableReporters.has(reporterIndex)) return;
+          const weight = productReporterTotals.get(reporterIndex) || 0;
+          weightedReporterHhi += hhi * weight;
+          reporterHhiWeight += weight;
+        });
+      }
+    });
+    const partnerTotal = [...partnerTotals.values()].reduce((sum, item) => sum + item, 0);
+    const shares = new Map(
+      [...partnerTotals.entries()].map(([key, item]) => [
+        key,
+        partnerTotal ? item / partnerTotal : 0,
+      ]),
+    );
+    sharesByYear.set(year, shares);
+    const hhi =
+      reporterEconomyIndex === null
+        ? [...shares.values()].reduce((sum, share) => sum + share ** 2 * 10_000, 0)
+        : reporterHhiWeight
+          ? weightedReporterHhi / reporterHhiWeight
+          : 0;
+    return { year, value, growth: null, hhi };
+  });
+  series.forEach((point, index) => {
+    if (!index) return;
+    const prior = series[index - 1].value;
+    point.growth = prior ? point.value / prior - 1 : null;
+  });
+  const startShares = sharesByYear.get(selectedYears[0]) || new Map();
+  const endShares = sharesByYear.get(selectedYears.at(-1)) || new Map();
+  const leading = [...new Set([...startShares.keys(), ...endShares.keys()])]
+    .sort(
+      (left, right) =>
+        Math.max(endShares.get(right) || 0, startShares.get(right) || 0) -
+        Math.max(endShares.get(left) || 0, startShares.get(left) || 0),
+    )
+    .slice(0, 5);
+  const partnerShareChanges = reporterEconomyIndex === null ? leading.map((key) => ({
+    key,
+    name: dataset.economies[key]?.name || "Unknown",
+    startShare: startShares.get(key) || 0,
+    endShare: endShares.get(key) || 0,
+  })) : [];
+  if (reporterEconomyIndex === null && leading.length) {
+    partnerShareChanges.push({
+      key: "other",
+      name: "Other partners",
+      startShare: Math.max(0, 1 - leading.reduce((sum, key) => sum + (startShares.get(key) || 0), 0)),
+      endShare: Math.max(0, 1 - leading.reduce((sum, key) => sum + (endShares.get(key) || 0), 0)),
+    });
+  }
+  const endpointReporterCount = (yearIndex) =>
+    [...intersectSets(
+      productIndexes.map(
+        (productIndex) =>
+          new Set((summaryAt(productIndex, yearIndex)?.reporterTotals || []).map(([key]) => key)),
+      ),
+    )].filter(
+      (reporterIndex) =>
+        reporterEconomyIndex === null || reporterIndex === reporterEconomyIndex,
+    ).length;
+  const startValue = series[0]?.value || 0;
+  const endValue = series.at(-1)?.value || 0;
+  const intervals = selectedYears.at(-1) - selectedYears[0];
+  return {
+    series,
+    comparableCount: comparableReporters.size,
+    startReporterCount: endpointReporterCount(yearIndexes[0]),
+    endReporterCount: endpointReporterCount(yearIndexes.at(-1)),
+    endGrowth: series.at(-1)?.growth ?? null,
+    cagr: startValue > 0 && intervals > 0 ? (endValue / startValue) ** (1 / intervals) - 1 : null,
+    hhiChange: (series.at(-1)?.hhi || 0) - (series[0]?.hhi || 0),
+    partnerShareChanges,
+  };
+}
+
 export default function TradeExplorerApp() {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const popupRef = useRef(null);
   const mapPayloadRef = useRef(buildMapPayload([], []));
+  const reportingModeRef = useRef("imports");
   const [dataset, setDataset] = useState(null);
   const [loadError, setLoadError] = useState("");
-  const [productCode, setProductCode] = useState(DEFAULT_PRODUCT);
+  const [productCodes, setProductCodes] = useState([DEFAULT_PRODUCT]);
+  const [reportingMode, setReportingMode] = useState("imports");
   const [year, setYear] = useState(2024);
   const [flowLimit, setFlowLimit] = useState(DEFAULT_FLOW_LIMIT);
   const [trendStartYear, setTrendStartYear] = useState(2019);
@@ -1385,6 +1818,7 @@ export default function TradeExplorerApp() {
   const [showHhiInfo, setShowHhiInfo] = useState(false);
   const [analysisView, setAnalysisView] = useState("snapshot");
   const [selectedTrendYear, setSelectedTrendYear] = useState(null);
+  const [countryEconomyIndex, setCountryEconomyIndex] = useState(null);
 
   useEffect(() => {
     fetch(assetUrl("data/trade-flows-comtrade.json"))
@@ -1397,17 +1831,69 @@ export default function TradeExplorerApp() {
         const defaultProduct = payload.products.find(
           (product) => product.code === DEFAULT_PRODUCT,
         );
-        setProductCode(defaultProduct?.code || payload.products[0]?.code);
+        setProductCodes([defaultProduct?.code || payload.products[0]?.code]);
         setYear(Math.max(...payload.years));
       })
       .catch((error) => setLoadError(error.message));
   }, []);
 
-  const selectedProduct = useMemo(
+  const selectedProducts = useMemo(() => {
+    if (!dataset) return [];
+    const selected = new Set(productCodes);
+    return dataset.products.filter((product) => selected.has(product.code));
+  }, [dataset, productCodes]);
+  const effectiveProducts = useMemo(
     () =>
-      dataset?.products.find((product) => product.code === productCode) || null,
-    [dataset, productCode],
+      selectedProducts.filter(
+        (product) =>
+          !selectedProducts.some(
+            (other) =>
+              other.code !== product.code && product.code.startsWith(other.code),
+          ),
+      ),
+    [selectedProducts],
   );
+  const selectedProductIndexes = useMemo(
+    () => effectiveProducts.map((product) => dataset.products.indexOf(product)),
+    [dataset, effectiveProducts],
+  );
+  const selectedProductLabel = useMemo(() => {
+    if (selectedProducts.length === 1) return `HS ${selectedProducts[0].code}`;
+    return `${selectedProducts.length} selected products`;
+  }, [selectedProducts]);
+  const selectedProduct = selectedProducts[0] || null;
+  const productCode = selectedProduct?.code || "";
+
+  const toggleProductCode = useCallback((code) => {
+    setProductCodes((current) => {
+      if (current.includes(code)) {
+        return current.length === 1 ? current : current.filter((item) => item !== code);
+      }
+      const nonOverlapping = current.filter(
+        (item) => !item.startsWith(code) && !code.startsWith(item),
+      );
+      return [...nonOverlapping, code];
+    });
+    setSelectedRouteId(null);
+    setSelectedEconomyIndex(null);
+    setConnectionMode("all");
+  }, []);
+
+  const toggleProductGroup = useCallback((groupCodes) => {
+    setProductCodes((current) => {
+      const selected = new Set(current);
+      const groupIsSelected = groupCodes.every((code) => selected.has(code));
+      if (groupIsSelected) {
+        const next = current.filter((code) => !groupCodes.includes(code));
+        return next.length ? next : current;
+      }
+      groupCodes.forEach((code) => selected.add(code));
+      return [...selected];
+    });
+    setSelectedRouteId(null);
+    setSelectedEconomyIndex(null);
+    setConnectionMode("all");
+  }, []);
 
   const productGroups = useMemo(() => {
     if (!dataset) return [];
@@ -1428,46 +1914,55 @@ export default function TradeExplorerApp() {
   }, [dataset]);
 
   const eligibleTrendYears = useMemo(() => {
-    if (!dataset || !selectedProduct) return [];
+    if (!dataset || !effectiveProducts.length) return [];
     const earliestYear = Math.max(
       Math.min(...dataset.years),
-      selectedProduct.availableFrom ||
-        selectedProduct.activeFrom ||
-        Math.min(...dataset.years),
+      ...effectiveProducts.map(
+        (product) =>
+          product.availableFrom || product.activeFrom || Math.min(...dataset.years),
+      ),
     );
     return dataset.years.filter((item) => item >= earliestYear);
-  }, [dataset, selectedProduct]);
+  }, [dataset, effectiveProducts]);
 
   useEffect(() => {
-    if (!dataset || !selectedProduct) return;
-    const range = defaultTrendRange(dataset.years, selectedProduct);
+    if (!dataset || !effectiveProducts.length) return;
+    const range = defaultTrendRange(dataset.years, {
+      availableFrom: Math.max(
+        ...effectiveProducts.map(
+          (product) =>
+            product.availableFrom || product.activeFrom || Math.min(...dataset.years),
+        ),
+      ),
+    });
     setTrendStartYear(range.start);
     setTrendEndYear(range.end);
     setSelectedTrendYear(null);
-  }, [dataset, selectedProduct]);
+  }, [dataset, effectiveProducts]);
 
   useEffect(() => {
-    if (!dataset || !selectedProduct) return;
-    const availableFrom =
-      selectedProduct.availableFrom ||
-      selectedProduct.activeFrom ||
-      Math.min(...dataset.years);
+    if (!dataset || !effectiveProducts.length) return;
+    const availableFrom = Math.max(
+      ...effectiveProducts.map(
+        (product) =>
+          product.availableFrom || product.activeFrom || Math.min(...dataset.years),
+      ),
+    );
     if (year < availableFrom) setYear(Math.max(...dataset.years));
-  }, [dataset, selectedProduct, year]);
+  }, [dataset, effectiveProducts, year]);
 
-  const analysis = useMemo(() => {
+  const legacyAnalysis = useMemo(() => {
     if (!dataset || !selectedProduct) return null;
     const productIndex = dataset.products.indexOf(selectedProduct);
     const yearIndex = dataset.years.indexOf(year);
-    const storedSummary =
-      dataset.snapshotSummaries?.[productIndex]?.[yearIndex] || null;
+    const storedSummary = null;
     const worldIndex = dataset.economies.findIndex(
       (economy) => economy.name === "World",
     );
     const worldByImporter = new Map(storedSummary?.importerTotals || []);
     const bilateral = [];
 
-    dataset.records.forEach((record) => {
+    dataset.reportingViews.imports.records.forEach((record) => {
       const [recordProduct, importerIndex, exporterIndex, values] = record;
       if (recordProduct !== productIndex) return;
       const value = values[yearIndex];
@@ -1624,7 +2119,7 @@ export default function TradeExplorerApp() {
     };
   }, [dataset, selectedProduct, year]);
 
-  const trendAnalysis = useMemo(() => {
+  const legacyTrendAnalysis = useMemo(() => {
     if (!dataset || !selectedProduct || !eligibleTrendYears.length) return null;
     const productIndex = dataset.products.indexOf(selectedProduct);
     const worldIndex = dataset.economies.findIndex(
@@ -1635,10 +2130,7 @@ export default function TradeExplorerApp() {
     );
     if (years.length < 2) return null;
 
-    const storedTrend =
-      dataset.trendSummaries?.[productIndex]?.[
-        `${years[0]}-${years.at(-1)}`
-      ] || null;
+    const storedTrend = null;
     if (storedTrend) {
       return {
         ...storedTrend,
@@ -1652,7 +2144,7 @@ export default function TradeExplorerApp() {
       };
     }
 
-    const productRecords = dataset.records.filter(
+    const productRecords = dataset.reportingViews.imports.records.filter(
       (record) => record[0] === productIndex,
     );
     const worldRecords = productRecords.filter(
@@ -1790,6 +2282,42 @@ export default function TradeExplorerApp() {
     trendStartYear,
   ]);
 
+  const analysis = useMemo(() => {
+    if (!dataset || !selectedProductIndexes.length) return null;
+    const yearIndex = dataset.years.indexOf(year);
+    if (yearIndex < 0) return null;
+    return buildSnapshotAnalysis(
+      dataset,
+      reportingMode,
+      selectedProductIndexes,
+      yearIndex,
+      countryEconomyIndex,
+    );
+  }, [countryEconomyIndex, dataset, reportingMode, selectedProductIndexes, year]);
+
+  const trendAnalysis = useMemo(() => {
+    if (!dataset || !selectedProductIndexes.length) return null;
+    const years = eligibleTrendYears.filter(
+      (item) => item >= trendStartYear && item <= trendEndYear,
+    );
+    if (years.length < 2) return null;
+    return buildTrendAnalysis(
+      dataset,
+      reportingMode,
+      selectedProductIndexes,
+      years,
+      countryEconomyIndex,
+    );
+  }, [
+    dataset,
+    eligibleTrendYears,
+    reportingMode,
+    countryEconomyIndex,
+    selectedProductIndexes,
+    trendEndYear,
+    trendStartYear,
+  ]);
+
   const selectedConnections = useMemo(() => {
     if (!analysis || selectedEconomyIndex === null) {
       return { all: analysis?.routes || [], imports: [], exports: [] };
@@ -1842,10 +2370,25 @@ export default function TradeExplorerApp() {
     selectedEconomyIndex === null
       ? null
       : dataset?.economies[selectedEconomyIndex] || null;
-
+  const countryEconomy =
+    countryEconomyIndex === null
+      ? null
+      : dataset?.economies[countryEconomyIndex] || null;
+  const countryOptions = useMemo(
+    () =>
+      (dataset?.economies || [])
+        .map((economy, economyIndex) => ({ ...economy, economyIndex }))
+        .filter((economy) => economy.name !== "World" && economy.iso3)
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [dataset],
+  );
   useEffect(() => {
     mapPayloadRef.current = mapPayload;
   }, [mapPayload]);
+
+  useEffect(() => {
+    reportingModeRef.current = reportingMode;
+  }, [reportingMode]);
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return undefined;
@@ -1907,7 +2450,7 @@ export default function TradeExplorerApp() {
               <div class="map-popup__dot" style="background:#2563eb"></div>
               <div>
                 <strong>${escapeHtml(props.supplier)} → ${escapeHtml(props.importer)}</strong>
-                <span>Importer-reported bilateral flow</span>
+                <span>${reportingModeRef.current === "exports" ? "Exporter" : "Importer"}-reported bilateral flow</span>
                 <p>${escapeHtml(formatUsdThousand(Number(props.value), 2))}</p>
               </div>
             </div>`,
@@ -1941,7 +2484,7 @@ export default function TradeExplorerApp() {
               <div class="map-popup__dot" style="background:#0f172a"></div>
               <div>
                 <strong>${escapeHtml(props.name)}</strong>
-                <span>Total trade across the full dataset</span>
+                <span>Trade represented in the current view</span>
                 <p>${escapeHtml(formatUsdThousand(Number(props.value), 2))}</p>
               </div>
             </div>`,
@@ -1961,10 +2504,9 @@ export default function TradeExplorerApp() {
         if (!Number.isFinite(economyIndex)) return;
         popupRef.current?.remove();
         setSelectedRouteId(null);
+        setCountryEconomyIndex(economyIndex);
         setConnectionMode("all");
-        setSelectedEconomyIndex((current) =>
-          current === economyIndex ? null : economyIndex,
-        );
+        setSelectedEconomyIndex(null);
       });
     });
     map.on("styledata", syncLayers);
@@ -2054,7 +2596,8 @@ export default function TradeExplorerApp() {
       dataset?.years || [2024],
       defaultProduct,
     );
-    setProductCode(DEFAULT_PRODUCT);
+    setProductCodes([defaultProduct?.code || DEFAULT_PRODUCT]);
+    setReportingMode("imports");
     setYear(Math.max(...(dataset?.years || [2024])));
     setFlowLimit(DEFAULT_FLOW_LIMIT);
     setTrendStartYear(trendRange.start);
@@ -2063,6 +2606,7 @@ export default function TradeExplorerApp() {
     setSelectedRouteId(null);
     setSelectedEconomyIndex(null);
     setConnectionMode("all");
+    setCountryEconomyIndex(null);
   };
 
   if (loadError) {
@@ -2073,16 +2617,26 @@ export default function TradeExplorerApp() {
   }
 
   const hhi = hhiBand(analysis.overallHhi);
-  const defaultRange = defaultTrendRange(dataset.years, selectedProduct);
+  const defaultRange = defaultTrendRange(dataset.years, {
+    availableFrom: Math.max(
+      ...effectiveProducts.map(
+        (product) =>
+          product.availableFrom || product.activeFrom || Math.min(...dataset.years),
+      ),
+    ),
+  });
   const hasFilters =
-    productCode !== DEFAULT_PRODUCT ||
-    (analysisView === "snapshot"
-      ? year !== Math.max(...dataset.years) ||
-        flowLimit !== DEFAULT_FLOW_LIMIT ||
-        selectedEconomyIndex !== null
-      : trendStartYear !== defaultRange.start ||
+    productCodes.length !== 1 ||
+    productCodes[0] !== DEFAULT_PRODUCT ||
+    reportingMode !== "imports" ||
+    countryEconomyIndex !== null ||
+    (analysisView === "trends"
+      ? trendStartYear !== defaultRange.start ||
         trendEndYear !== defaultRange.end ||
-        selectedTrendYear !== null);
+        selectedTrendYear !== null
+      : year !== Math.max(...dataset.years) ||
+        flowLimit !== DEFAULT_FLOW_LIMIT ||
+        selectedEconomyIndex !== null);
 
   return (
     <div className="app-shell">
@@ -2102,30 +2656,14 @@ export default function TradeExplorerApp() {
           className={`filter-bar filter-bar--${analysisView}`}
           aria-label="Trade dashboard filters"
         >
-          <label className="select-wrap select-wrap--product">
-            <span>Product code</span>
-            <select
-              value={productCode}
-              onChange={(event) => {
-                setProductCode(event.target.value);
-                setSelectedRouteId(null);
-                setSelectedEconomyIndex(null);
-                setConnectionMode("all");
-              }}
-              aria-label="Product code"
-            >
-              {productGroups.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.products.map((product) => (
-                    <option key={product.code} value={product.code}>
-                      HS {product.code} · {product.selectorLabel || product.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <ChevronDown size={15} />
-          </label>
+          <div className="filter-section filter-section--scope">
+            <span className="filter-section__label">Scope</span>
+          <ProductMultiSelect
+            groups={productGroups}
+            selectedCodes={productCodes}
+            onToggle={toggleProductCode}
+            onToggleGroup={toggleProductGroup}
+          />
 
           <div className="analysis-mode-filter" aria-label="Analysis mode">
             <span>View</span>
@@ -2145,10 +2683,62 @@ export default function TradeExplorerApp() {
             </div>
           </div>
 
+          <div className="reporting-mode-filter" aria-label="Reported trade flow">
+              <span>Reported flow</span>
+              <div>
+                <Segment
+                  active={reportingMode === "imports"}
+                  onClick={() => {
+                    setReportingMode("imports");
+                    setSelectedRouteId(null);
+                    setSelectedEconomyIndex(null);
+                  }}
+                >
+                  Imports
+                </Segment>
+                <Segment
+                  active={reportingMode === "exports"}
+                  onClick={() => {
+                    setReportingMode("exports");
+                    setSelectedRouteId(null);
+                    setSelectedEconomyIndex(null);
+                  }}
+                >
+                  Exports
+                </Segment>
+              </div>
+          </div>
+
+          <label className="select-wrap select-wrap--country">
+            <span>Country</span>
+            <select
+              value={countryEconomyIndex ?? ""}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setCountryEconomyIndex(nextValue === "" ? null : Number(nextValue));
+                setSelectedRouteId(null);
+                setSelectedEconomyIndex(null);
+                setConnectionMode("all");
+              }}
+              aria-label="Country"
+            >
+              <option value="">All economies</option>
+              {countryOptions.map((economy) => (
+                <option key={economy.economyIndex} value={economy.economyIndex}>
+                  {economy.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={15} />
+          </label>
+          </div>
+
+          <div className="filter-section filter-section--display">
+            <span className="filter-section__label">Time and display</span>
           {analysisView === "snapshot" ? (
             <>
               <label className="select-wrap select-wrap--year">
-                <span>Snapshot year</span>
+                <span>Reporting year</span>
                 <select
                   value={year}
                   onChange={(event) => {
@@ -2157,10 +2747,14 @@ export default function TradeExplorerApp() {
                   aria-label="Snapshot year"
                 >
                   {[...dataset.years].reverse().map((item) => {
-                    const availableFrom =
-                      selectedProduct.availableFrom ||
-                      selectedProduct.activeFrom ||
-                      Math.min(...dataset.years);
+                    const availableFrom = Math.max(
+                      ...effectiveProducts.map(
+                        (product) =>
+                          product.availableFrom ||
+                          product.activeFrom ||
+                          Math.min(...dataset.years),
+                      ),
+                    );
                     const unavailable = item < availableFrom;
                     return (
                       <option key={item} value={item} disabled={unavailable}>
@@ -2240,19 +2834,25 @@ export default function TradeExplorerApp() {
             <FilterX size={16} />
             <span>Reset</span>
           </button>
+          </div>
         </section>
 
         <div className="content">
           <header className="page-header">
             <div>
-              <h1>{analysisView === "snapshot" ? "Trade snapshot" : "Trade trends"}</h1>
+              <h1>
+                {countryEconomy ? `${countryEconomy.name} · ` : ""}
+                {`${reportingMode === "exports" ? "Reported export" : "Reported import"} ${
+                  analysisView === "snapshot" ? "snapshot" : "trends"
+                }`}
+              </h1>
               {analysisView === "snapshot" ? (
                 <p>
-                  Annual imports reported by {analysis.reporters} economies in {year}
+                  Annual {reportingMode} reported by {countryEconomy?.name || `${analysis.reporters} economies`} in {year}
                 </p>
               ) : (
                 <p>
-                  Compare years using economies with data throughout the period
+                  Compare years using {countryEconomy ? `${countryEconomy.name}'s reported values` : "economies with data throughout the period"}
                 </p>
               )}
             </div>
@@ -2264,14 +2864,14 @@ export default function TradeExplorerApp() {
           >
           <section className="kpi-grid" aria-label="Headline indicators">
             <KpiCard
-              label="Reported imports"
-              value={formatUsdThousand(analysis.totalImported)}
-              subtext={`World totals from ${analysis.reporters} economies`}
+              label={`Reported ${reportingMode}`}
+              value={formatUsdThousand(analysis.totalReported)}
+              subtext={countryEconomy ? `World total reported by ${countryEconomy.name}` : `World totals from ${analysis.reporters} economies`}
             />
             <KpiCard
-              label="Supplier concentration"
+              label={reportingMode === "exports" ? "Destination concentration" : "Supplier concentration"}
               value={formatHhi(analysis.overallHhi)}
-              subtext={`${hhi.label} across reporting economies`}
+              subtext={countryEconomy ? `${hhi.label} for ${countryEconomy.name}` : `${hhi.label} across reporting economies`}
             >
               <button
                 className="kpi-info-button"
@@ -2290,8 +2890,8 @@ export default function TradeExplorerApp() {
               <Info size={16} />
               <div className="hhi-info-content">
                 <p>
-                  HHI measures supplier concentration on a 0–10,000 scale.
-                  Higher values mean imports depend on fewer suppliers. This
+                  HHI measures {reportingMode === "exports" ? "destination" : "supplier"} concentration on a 0–10,000 scale.
+                  Higher values mean {reportingMode === "exports" ? "exports go to fewer destinations" : "imports depend on fewer suppliers"}. This
                   dashboard uses: below 1,000 = low, 1,000–1,800 = moderate,
                   and above 1,800 = high. These thresholds are indicative.
                 </p>
@@ -2393,13 +2993,14 @@ export default function TradeExplorerApp() {
               <span><i className="legend-both" />Both roles</span>
               <small>
                 {selectedEconomy
-                  ? "Node size uses total trade across the full dataset. Blue lines end in the selected economy; orange lines start there."
-                  : "Node size uses total trade across the full dataset. Line width represents the displayed importer-reported bilateral value."}
+                  ? "Node size uses trade in the current view. Blue lines end in the selected economy; orange lines start there."
+                  : `Node size uses trade in the current view. Line width represents the displayed ${reportingMode === "exports" ? "exporter" : "importer"}-reported bilateral value.`}
               </small>
             </div>
             <RouteDetail
               route={selectedRoute}
-              product={selectedProduct}
+              productLabel={selectedProductLabel}
+              reportingMode={reportingMode}
               year={year}
               onClose={() => setSelectedRouteId(null)}
             />
@@ -2418,7 +3019,7 @@ export default function TradeExplorerApp() {
           </section>
 
           <Panel
-            title="Leading bilateral trade flows"
+            title={`Leading ${reportingMode === "exports" ? "exporter" : "supplier"}-to-${reportingMode === "exports" ? "destination" : "importer"} trade flows`}
             subtitle={
               selectedEconomy
                 ? connectionMode === "imports"
@@ -2426,7 +3027,9 @@ export default function TradeExplorerApp() {
                   : connectionMode === "exports"
                     ? `Destinations reporting imports from ${selectedEconomy.name}`
                     : `Shown connections involving ${selectedEconomy.name}`
-                : "Named bands show leading routes; remaining destinations and suppliers are grouped under Other economies"
+                : countryEconomy
+                  ? `Leading reported connections for ${countryEconomy.name}`
+                  : "Named bands show leading routes; remaining destinations and suppliers are grouped under Other economies"
             }
             className="sankey-panel"
           >
@@ -2435,7 +3038,7 @@ export default function TradeExplorerApp() {
               economies={dataset.economies}
               selectedEconomyIndex={selectedEconomyIndex}
               residualRows={
-                selectedEconomyIndex === null
+                selectedEconomyIndex === null && countryEconomyIndex === null
                   ? analysis.sankeyResiduals?.[flowLimit] || []
                   : []
               }
@@ -2451,20 +3054,20 @@ export default function TradeExplorerApp() {
 
           <div className="two-column-grid">
             <Panel
-              title="Top importing economies"
-              subtitle="Ranked by reported World totals"
+              title={countryEconomy ? "Reporting economy" : `Top ${reportingMode === "exports" ? "exporting" : "importing"} economies`}
+              subtitle={countryEconomy ? `Selected ${reportingMode === "exports" ? "exporter" : "importer"}` : "Ranked by reported World totals"}
             >
               <RankingBars
-                rows={analysis.importers.slice(0, 10)}
+                rows={analysis.reporterRanking.slice(0, 10)}
                 color="#2563eb"
               />
             </Panel>
             <Panel
-              title="Top suppliers"
-              subtitle="Ranked by bilateral imports reported by destination economies"
+              title={reportingMode === "exports" ? "Top destinations" : "Top suppliers"}
+              subtitle={countryEconomy ? `Leading partners reported by ${countryEconomy.name}` : `Ranked by bilateral ${reportingMode} reported by ${reportingMode === "exports" ? "origin" : "destination"} economies`}
             >
               <RankingBars
-                rows={analysis.suppliers.slice(0, 10)}
+                rows={analysis.partnerRanking.slice(0, 10)}
                 color="#d97706"
               />
             </Panel>
@@ -2472,11 +3075,14 @@ export default function TradeExplorerApp() {
 
           <div className="concentration-routes-grid">
             <Panel
-              title="Supplier concentration by importer"
-              subtitle="Reporting economies ranked from highest to lowest HHI"
+              title={reportingMode === "exports" ? "Destination concentration by exporter" : "Supplier concentration by importer"}
+              subtitle={countryEconomy ? `Partner concentration reported by ${countryEconomy.name}` : "Reporting economies ranked from highest to lowest HHI"}
               className="hhi-panel"
             >
-              <HhiChart rows={analysis.importerHhi} />
+              <HhiChart
+                rows={analysis.reporterHhi}
+                reporterLabel={reportingMode === "exports" ? "exporter" : "importer"}
+              />
             </Panel>
             <Panel
               title="Top bilateral routes"
@@ -2506,6 +3112,8 @@ export default function TradeExplorerApp() {
                 endYear={trendEndYear}
                 selectedYear={selectedTrendYear}
                 onSelectYear={setSelectedTrendYear}
+                reporterName={countryEconomy?.name}
+                reportingMode={reportingMode}
               />
             ) : (
               <div className="empty-state">No trend data available.</div>
@@ -2517,8 +3125,7 @@ export default function TradeExplorerApp() {
               <strong>Asian Transport Observatory</strong>
               <span>
                 Source: {dataset.meta?.source || "UN Comtrade"} · annual
-                importer-reported values in current US$ thousand · HS as
-                reported
+                {` ${reportingMode === "exports" ? "exporter" : "importer"}-reported values`} in current US$ thousand · HS as reported
               </span>
             </div>
           </footer>

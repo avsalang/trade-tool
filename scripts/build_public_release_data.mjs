@@ -81,76 +81,103 @@ function buildTradeSankeyResiduals(validBilateral, topRoutes) {
   return residuals;
 }
 
-function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) {
-  const worldByImporter = new Map();
+function buildSnapshot(
+  productIndex,
+  yearIndex,
+  records,
+  worldIndex,
+  economies,
+  reportingSide = "importer-reported",
+) {
+  const worldByReporter = new Map();
   const bilateral = [];
 
   records.forEach((record) => {
-    const [, importerIndex, exporterIndex, values] = record;
+    const [, reporterIndex, partnerIndex, values] = record;
     const value = finiteValue(values[yearIndex]);
     if (value === null) return;
-    if (exporterIndex === worldIndex) worldByImporter.set(importerIndex, value);
-    else if (value > 0) bilateral.push({ importerIndex, exporterIndex, value });
+    if (partnerIndex === worldIndex) worldByReporter.set(reporterIndex, value);
+    else if (value > 0) {
+      bilateral.push({
+        reporterIndex,
+        partnerIndex,
+        importerIndex:
+          reportingSide === "exporter-reported" ? partnerIndex : reporterIndex,
+        exporterIndex:
+          reportingSide === "exporter-reported" ? reporterIndex : partnerIndex,
+        value,
+      });
+    }
   });
 
   const validBilateral = bilateral.filter((row) =>
-    worldByImporter.has(row.importerIndex),
+    worldByReporter.has(row.reporterIndex),
   );
-  const totalImported = [...worldByImporter.values()].reduce(
+  const totalReported = [...worldByReporter.values()].reduce(
     (sum, value) => sum + value,
     0,
   );
-  const totalExported = validBilateral.reduce(
+  const totalBilateral = validBilateral.reduce(
     (sum, row) => sum + row.value,
     0,
   );
-  const supplierTotals = new Map();
-  const partnersByImporter = new Map();
+  const partnerTotals = new Map();
+  const partnersByReporter = new Map();
+  const originTotals = new Map();
 
   validBilateral.forEach((row) => {
-    supplierTotals.set(
-      row.exporterIndex,
-      (supplierTotals.get(row.exporterIndex) || 0) + row.value,
+    partnerTotals.set(
+      row.partnerIndex,
+      (partnerTotals.get(row.partnerIndex) || 0) + row.value,
     );
-    const rows = partnersByImporter.get(row.importerIndex) || [];
+    originTotals.set(
+      row.exporterIndex,
+      (originTotals.get(row.exporterIndex) || 0) + row.value,
+    );
+    const rows = partnersByReporter.get(row.reporterIndex) || [];
     rows.push(row);
-    partnersByImporter.set(row.importerIndex, rows);
+    partnersByReporter.set(row.reporterIndex, rows);
   });
 
-  const importerTotals = [...worldByImporter.entries()].filter(
+  const reporterTotals = [...worldByReporter.entries()].filter(
     ([, value]) => value > 0,
   );
-  const importers = importerTotals
+  const reporters = reporterTotals
     .map(([economyIndex, value]) => [
       economyIndex,
       value,
-      totalImported ? value / totalImported : 0,
+      totalReported ? value / totalReported : 0,
     ])
     .sort((left, right) => right[1] - left[1])
     .slice(0, 10);
-  const suppliers = [...supplierTotals.entries()]
+  const partners = [...partnerTotals.entries()]
     .map(([economyIndex, value]) => [
       economyIndex,
       value,
-      totalExported ? value / totalExported : 0,
+      totalBilateral ? value / totalBilateral : 0,
     ])
     .sort((left, right) => right[1] - left[1])
     .slice(0, 10);
-  const overallHhi = [...supplierTotals.values()].reduce((sum, value) => {
-    const share = totalExported ? value / totalExported : 0;
+  const overallHhi = [...partnerTotals.values()].reduce((sum, value) => {
+    const share = totalBilateral ? value / totalBilateral : 0;
     return sum + share ** 2 * 10_000;
   }, 0);
-  const importerHhi = importerTotals
-    .map(([importerIndex, importerValue]) => {
-      const partnerRows = partnersByImporter.get(importerIndex) || [];
+  const reporterHhi = reporterTotals
+    .map(([reporterIndex, reporterValue]) => {
+      const partnerRows = partnersByReporter.get(reporterIndex) || [];
       const hhi = partnerRows.reduce(
-        (sum, row) => sum + (row.value / importerValue) ** 2 * 10_000,
+        (sum, row) => sum + (row.value / reporterValue) ** 2 * 10_000,
         0,
       );
       const leading = [...partnerRows].sort(
         (left, right) => right.value - left.value,
       )[0];
-      return [importerIndex, hhi, leading?.exporterIndex ?? null];
+      return [
+        reporterIndex,
+        hhi,
+        leading?.partnerIndex ?? null,
+        leading?.value || 0,
+      ];
     })
     .sort((left, right) => right[1] - left[1]);
 
@@ -160,7 +187,7 @@ function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) 
   const mapSupplierIndexes = new Set(
     topRoutes.map((route) => route.exporterIndex),
   );
-  const mapSupplierTotals = [...supplierTotals.entries()].filter(
+  const mapSupplierTotals = [...originTotals.entries()].filter(
     ([economyIndex]) => mapSupplierIndexes.has(economyIndex),
   );
   const sankeyResiduals = buildTradeSankeyResiduals(
@@ -170,14 +197,16 @@ function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) 
 
   return {
     summary: {
-      totalImported,
-      totalExported,
-      reporters: worldByImporter.size,
+      reportingSide,
+      totalReported,
+      totalBilateral,
+      reporterCount: worldByReporter.size,
       overallHhi,
-      importerTotals,
-      importers,
-      suppliers,
-      importerHhi,
+      reporterTotals,
+      partnerTotals: [...partnerTotals.entries()],
+      reporterRanking: reporters,
+      partnerRanking: partners,
+      reporterHhi,
       mapSupplierTotals,
       sankeyResiduals,
     },
@@ -185,7 +214,7 @@ function buildSnapshot(productIndex, yearIndex, records, worldIndex, economies) 
   };
 }
 
-function buildTrendSummaries(productRecords, years, worldIndex) {
+function buildTrendSummaries(productRecords, years, worldIndex, reportingSide) {
   const worldRecords = productRecords.filter((record) => record[2] === worldIndex);
   const bilateralRecords = productRecords.filter(
     (record) => record[2] !== worldIndex,
@@ -202,38 +231,38 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
       const comparableRecords = worldRecords.filter((record) =>
         yearIndexes.every((index) => finiteValue(record[3][index]) !== null),
       );
-      const comparableImporters = new Set(
+      const comparableReporters = new Set(
         comparableRecords.map((record) => record[1]),
       );
-      const supplierSharesByYear = new Map();
+      const partnerSharesByYear = new Map();
       const series = selectedYears.map((year, offset) => {
         const yearIndex = yearIndexes[offset];
         const value = comparableRecords.reduce(
           (sum, record) => sum + (record[3][yearIndex] || 0),
           0,
         );
-        const supplierTotals = new Map();
+        const partnerTotals = new Map();
         bilateralRecords.forEach((record) => {
-          const [, importerIndex, supplierIndex, values] = record;
-          if (!comparableImporters.has(importerIndex)) return;
-          const supplierValue = finiteValue(values[yearIndex]);
-          if (supplierValue === null || supplierValue <= 0) return;
-          supplierTotals.set(
-            supplierIndex,
-            (supplierTotals.get(supplierIndex) || 0) + supplierValue,
+          const [, reporterIndex, partnerIndex, values] = record;
+          if (!comparableReporters.has(reporterIndex)) return;
+          const partnerValue = finiteValue(values[yearIndex]);
+          if (partnerValue === null || partnerValue <= 0) return;
+          partnerTotals.set(
+            partnerIndex,
+            (partnerTotals.get(partnerIndex) || 0) + partnerValue,
           );
         });
-        const supplierTotal = [...supplierTotals.values()].reduce(
-          (sum, supplierValue) => sum + supplierValue,
+        const partnerTotal = [...partnerTotals.values()].reduce(
+          (sum, partnerValue) => sum + partnerValue,
           0,
         );
         const shares = new Map(
-          [...supplierTotals.entries()].map(([supplierIndex, supplierValue]) => [
-            supplierIndex,
-            supplierTotal ? supplierValue / supplierTotal : 0,
+          [...partnerTotals.entries()].map(([partnerIndex, partnerValue]) => [
+            partnerIndex,
+            partnerTotal ? partnerValue / partnerTotal : 0,
           ]),
         );
-        supplierSharesByYear.set(year, shares);
+        partnerSharesByYear.set(year, shares);
         const hhi = [...shares.values()].reduce(
           (sum, share) => sum + share ** 2 * 10_000,
           0,
@@ -247,10 +276,10 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
         point.growth = priorValue ? point.value / priorValue - 1 : null;
       });
 
-      const startShares = supplierSharesByYear.get(selectedYears[0]) || new Map();
+      const startShares = partnerSharesByYear.get(selectedYears[0]) || new Map();
       const endShares =
-        supplierSharesByYear.get(selectedYears.at(-1)) || new Map();
-      const leadingSupplierIndexes = [
+        partnerSharesByYear.get(selectedYears.at(-1)) || new Map();
+      const leadingPartnerIndexes = [
         ...new Set([...startShares.keys(), ...endShares.keys()]),
       ]
         .sort(
@@ -259,31 +288,31 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
             Math.max(endShares.get(left) || 0, startShares.get(left) || 0),
         )
         .slice(0, 5);
-      const supplierShareChanges = leadingSupplierIndexes.map(
-        (supplierIndex) => ({
-          key: supplierIndex,
-          startShare: startShares.get(supplierIndex) || 0,
-          endShare: endShares.get(supplierIndex) || 0,
+      const partnerShareChanges = leadingPartnerIndexes.map(
+        (partnerIndex) => ({
+          key: partnerIndex,
+          startShare: startShares.get(partnerIndex) || 0,
+          endShare: endShares.get(partnerIndex) || 0,
         }),
       );
-      if (leadingSupplierIndexes.length) {
-        supplierShareChanges.push({
+      if (leadingPartnerIndexes.length) {
+        partnerShareChanges.push({
           key: "other",
           startShare: Math.max(
             0,
             1 -
-              leadingSupplierIndexes.reduce(
-                (sum, supplierIndex) =>
-                  sum + (startShares.get(supplierIndex) || 0),
+              leadingPartnerIndexes.reduce(
+                (sum, partnerIndex) =>
+                  sum + (startShares.get(partnerIndex) || 0),
                 0,
               ),
           ),
           endShare: Math.max(
             0,
             1 -
-              leadingSupplierIndexes.reduce(
-                (sum, supplierIndex) =>
-                  sum + (endShares.get(supplierIndex) || 0),
+              leadingPartnerIndexes.reduce(
+                (sum, partnerIndex) =>
+                  sum + (endShares.get(partnerIndex) || 0),
                 0,
               ),
           ),
@@ -300,6 +329,7 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
 
       summaries[`${selectedYears[0]}-${selectedYears.at(-1)}`] = {
         series,
+        reportingSide,
         comparableCount: comparableRecords.length,
         startReporterCount: reporterCount(startIndex),
         endReporterCount: reporterCount(endIndex),
@@ -309,7 +339,7 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
             ? (endValue / startValue) ** (1 / intervals) - 1
             : null,
         hhiChange: series.at(-1).hhi - series[0].hhi,
-        supplierShareChanges,
+        partnerShareChanges,
       };
     }
   }
@@ -317,7 +347,7 @@ function buildTrendSummaries(productRecords, years, worldIndex) {
   return summaries;
 }
 
-function buildPublicTradeDataset(source) {
+function buildPublicTradeView(source, reportingSide) {
   const worldIndex = source.economies.findIndex(
     (economy) => economy.name === "World",
   );
@@ -337,6 +367,7 @@ function buildPublicTradeDataset(source) {
         productRecords,
         worldIndex,
         source.economies,
+        reportingSide,
       );
       snapshotSummaries[productIndex][yearIndex] = summary;
       topRoutes.forEach((route) => {
@@ -358,6 +389,7 @@ function buildPublicTradeDataset(source) {
       productRecords,
       source.years,
       worldIndex,
+      reportingSide,
     );
   });
 
@@ -366,14 +398,26 @@ function buildPublicTradeDataset(source) {
       left[0] - right[0] || left[1] - right[1] || left[2] - right[2],
   );
   return {
+    reportingSide,
+    sourceMode: source.meta.sourceMode,
+    records,
+    snapshotSummaries,
+    trendSummaries,
+  };
+}
+
+function buildPublicTradeDataset(importSource, exportSource) {
+  const importView = buildPublicTradeView(importSource, "importer-reported");
+  const exportView = buildPublicTradeView(exportSource, "exporter-reported");
+  return {
     meta: {
-      title: source.meta.title,
+      title: importSource.meta.title,
       source: "UN Comtrade",
-      sourceMode: source.meta.sourceMode,
-      unit: source.meta.unit,
-      startYear: source.meta.startYear,
-      endYear: source.meta.endYear,
-      productCount: source.products.length,
+      sourceMode: "Reporter-reported annual imports or exports, kept as separate views",
+      unit: importSource.meta.unit,
+      startYear: importSource.meta.startYear,
+      endYear: importSource.meta.endYear,
+      productCount: importSource.products.length,
       publication: {
         type: "aggregated dashboard extract",
         topBilateralRoutesPerProductYear: TOP_ROUTE_LIMIT,
@@ -383,12 +427,13 @@ function buildPublicTradeDataset(source) {
           "Exact dashboard indicators are precomputed. Only leading bilateral routes are included for the interactive map and route views.",
       },
     },
-    years: source.years,
-    products: source.products,
-    economies: source.economies,
-    records,
-    snapshotSummaries,
-    trendSummaries,
+    years: importSource.years,
+    products: importSource.products,
+    economies: importSource.economies,
+    reportingViews: {
+      imports: importView,
+      exports: exportView,
+    },
   };
 }
 
@@ -563,10 +608,13 @@ await mkdir(publicDirectory, { recursive: true });
 const tradeSource = await loadJson(
   path.join(privateDirectory, "trade-flows-comtrade.full.json"),
 );
+const tradeExportSource = await loadJson(
+  path.join(privateDirectory, "trade-flows-comtrade-exports.full.json"),
+);
 const stageSource = await loadJson(
   path.join(privateDirectory, "comtrade-ev-bilateral.full.json"),
 );
-const publicTrade = buildPublicTradeDataset(tradeSource);
+const publicTrade = buildPublicTradeDataset(tradeSource, tradeExportSource);
 const publicStage = buildPublicStageDataset(stageSource);
 
 await writeFile(
@@ -579,7 +627,9 @@ await writeFile(
 );
 
 console.log(
-  `Public trade extract: ${publicTrade.records.length.toLocaleString()} route records`,
+  `Public trade extract: ${Object.values(publicTrade.reportingViews)
+    .reduce((sum, view) => sum + view.records.length, 0)
+    .toLocaleString()} route records across import and export views`,
 );
 for (const [year, data] of Object.entries(publicStage.datasets)) {
   console.log(
