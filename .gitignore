@@ -1,0 +1,31 @@
+/node_modules/
+/dist/
+/.next/
+/outputs/
+/data/
+/docs/
+
+# Local ingestion, download, and QA utilities are not part of the public site.
+/scripts/__pycache__/
+/scripts/*.pyc
+/scripts/download_*.py
+/scripts/integrate_*.py
+/scripts/build_comtrade_trade_data.py
+/scripts/build_trade_data.mjs
+/scripts/sync_ev_module.mjs
+/scripts/qa*.mjs
+
+# Only the audited publication extracts may be committed from public/data.
+/public/data/*
+!/public/data/trade-flows-comtrade.json
+!/public/data/comtrade-ev-bilateral.json
+
+# Local credentials and workstation artifacts.
+.env
+.env.*
+!.env.example
+next-env.d.ts
+.DS_Store
+*.log
+/trend-qa.png
+/verification-*.png

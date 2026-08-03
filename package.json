@@ -1,0 +1,33 @@
+{
+  "name": "ato-transport-trade-flow-explorer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build:public-data": "node scripts/build_public_release_data.mjs",
+    "audit:public": "node scripts/audit_public_release.mjs",
+    "dev": "vinext dev --hostname 127.0.0.1 --port 4173",
+    "build": "node scripts/build.mjs",
+    "start": "vinext start --hostname 127.0.0.1 --port 4173",
+    "dev:pages": "vite --config vite.pages.config.js --host 127.0.0.1 --port 4173",
+    "prebuild:pages": "npm run audit:public",
+    "build:pages": "vite build --config vite.pages.config.js",
+    "preview:pages": "vite preview --config vite.pages.config.js --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "lucide-react": "0.487.0",
+    "maplibre-gl": "5.23.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "recharts": "^2.15.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.0.0",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "playwright-core": "^1.61.1",
+    "react-server-dom-webpack": "19.2.6",
+    "vinext": "0.2.1",
+    "vite": "8.1.5",
+    "world-countries": "^5.1.0"
+  }
+}
