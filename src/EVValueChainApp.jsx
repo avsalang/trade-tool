@@ -1,4 +1,3 @@
-// Generated from the EV value-chain application by scripts/sync_ev_module.mjs.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import { ResponsiveContainer, Sankey } from "recharts";
@@ -980,6 +979,15 @@ function buildStageChain(data, reportingSide, material) {
       uniqueStageCountries(destinations),
     );
     namedRouteSets.set(profile.stage, namedRoutes);
+    profile.namedValue = profile.links.reduce(
+      (sum, link) =>
+        sum +
+        (namedRoutes.has(`${link[3]}|${link[4]}`) ? link[5] : 0),
+      0,
+    );
+    profile.namedCoverage = profile.total
+      ? profile.namedValue / profile.total
+      : 0;
   });
 
   const columnScores = new Map([[1, exporterTotals.get(1)]]);
@@ -1301,12 +1309,12 @@ function getStageHover(entry, type) {
       value: `${Number(link.value || 0).toFixed(1)}% · ${formatComtradeUsd(link.valueUsd)}`,
       subtitle:
         link.stage === 0
-          ? "Share of upstream scope"
+          ? "Upstream product scope"
           : link.kind === "named"
-            ? `${STAGE_NAMES[link.stage]} · UNCTAD-selected bilateral flow`
+            ? `${STAGE_NAMES[link.stage]} · leading bilateral route`
             : link.kind === "exporter-residual"
-              ? `${STAGE_NAMES[link.stage]} · remaining destinations`
-              : `${STAGE_NAMES[link.stage]} · remaining exporters and routes`,
+              ? `${STAGE_NAMES[link.stage]} · other destinations`
+              : `${STAGE_NAMES[link.stage]} · other exporters and routes`,
     };
   }
   const node = entry.payload;
@@ -1314,7 +1322,7 @@ function getStageHover(entry, type) {
     x: entry.x + entry.width / 2,
     y: entry.y + entry.height / 2,
     title: node.fullName,
-    value: `${Number(node.totalValue || 0).toFixed(1)}% of stage flow`,
+    value: `${Number(node.totalValue || 0).toFixed(1)}% of stage trade`,
     subtitle: node.role,
   };
 }
@@ -1350,12 +1358,13 @@ export function StageValueChainSection({ data }) {
   const activeNode =
     selectedNodeIndex >= 0 ? chain.chart.nodes[selectedNodeIndex] : null;
   const reportingNoun = reportingSide === 0 ? "exports" : "imports";
+  const reportingEconomy = reportingSide === 0 ? "exporting" : "importing";
   const columns = [
     ["Material scope", `${material} products`],
-    ["Extraction", "Upstream suppliers"],
-    ["Processing", "Refining economies"],
-    ["Battery materials", "Active materials"],
-    ["Cell components", "Cells and battery packs"],
+    ["Extraction stage", "Product exporters"],
+    ["Processing stage", "Product exporters"],
+    ["Battery materials", "Product exporters"],
+    ["Cell components", "Product exporters"],
     ["Electric vehicles", "Vehicle exporters"],
     ["End users", "Import destinations"],
   ];
@@ -1397,6 +1406,7 @@ export function StageValueChainSection({ data }) {
           <h2 id="stage-overview-title">
             EV Value Chain
           </h2>
+          <p>Global trade in selected products across five stages of the electric-vehicle value chain.</p>
         </div>
         <div className="stage-overview-controls">
           <label>
@@ -1434,7 +1444,7 @@ export function StageValueChainSection({ data }) {
             <ChevronDown size={15} />
           </label>
           <label>
-            Data reported by
+            Reporting basis
             <select
               value={reportingSide}
               onChange={(event) => {
@@ -1442,8 +1452,8 @@ export function StageValueChainSection({ data }) {
                 setSelectedNodeId(null);
               }}
             >
-              <option value={0}>Exporting economies</option>
-              <option value={1}>Importing economies (mirror data)</option>
+              <option value={0}>Exporter-reported exports</option>
+              <option value={1}>Importer-reported imports</option>
             </select>
             <ChevronDown size={15} />
           </label>
@@ -1451,8 +1461,7 @@ export function StageValueChainSection({ data }) {
       </header>
 
       <div className="stage-method-note">
-        This interactive figure follows the value-chain Sankey approach
-        presented in{" "}
+        Method: Based on the approach in{" "}
         <a
           href="https://unctad.org/system/files/official-document/ditcmisc2023d1_en_0.pdf"
           target="_blank"
@@ -1460,16 +1469,19 @@ export function StageValueChainSection({ data }) {
         >
           UNCTAD’s <em>Technical note on critical minerals</em>
         </a>
-        . Using bilateral HS6 UN Comtrade data, the chart shows the three leading
-        exporters at each stage and their three largest destinations. Remaining
-        flows are grouped under “Other economies,” and band width represents each
-        bilateral flow’s share of the stage’s total exports.
+        , the chart uses bilateral HS6 UN Comtrade data to show the three largest
+        {` ${reportingEconomy}`} economies at each stage and their three main
+        partners. Other trade is grouped under “Other economies”; band width is the
+        route’s share of stage {reportingNoun}. Some economies are retained to
+        connect a leading route in an adjacent stage. Stages group HS codes and do
+        not trace individual shipments. Battery, component and vehicle codes are
+        common to all material views.
       </div>
 
       <article className="stage-chain-panel">
         {activeNode ? (
           <div className="stage-chain-selection">
-            Highlighting {activeNode.role.toLowerCase()}:{" "}
+            Selected {activeNode.role.toLowerCase()}:{" "}
             <strong>{activeNode.fullName}</strong>
             <button type="button" onClick={() => setSelectedNodeId(null)}>
               Clear
@@ -1498,7 +1510,7 @@ export function StageValueChainSection({ data }) {
                   iterations={64}
                   linkCurvature={0.56}
                   sort={false}
-                  margin={{ top: 34, right: 150, bottom: 24, left: 150 }}
+                  margin={{ top: 34, right: 115, bottom: 24, left: 115 }}
                   node={nodeRenderer}
                   link={linkRenderer}
                   onMouseEnter={(entry, type) =>
@@ -1525,7 +1537,7 @@ export function StageValueChainSection({ data }) {
         </div>
         <footer className="stage-chain-footer">
           <span>
-            Band width shows share of stage {reportingNoun}
+            Band width: share of stage {reportingNoun} · Values: current US$
           </span>
           <div>
             {chain.profiles.map((profile) => (
@@ -1533,6 +1545,9 @@ export function StageValueChainSection({ data }) {
                 <i style={{ background: STAGE_COLUMN_COLORS[profile.stage] }} />
                 {STAGE_NAMES[profile.stage]}{" "}
                 <strong>{formatComtradeUsd(profile.total)}</strong>
+                <small>
+                  {(profile.namedCoverage * 100).toFixed(0)}% shown by name
+                </small>
               </span>
             ))}
           </div>

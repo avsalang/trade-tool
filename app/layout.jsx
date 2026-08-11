@@ -5,7 +5,7 @@ import "../src/filter-layout.css";
 export const metadata = {
   title: "ATO Transport Product Trade Flow Explorer",
   description:
-    "Explore importer-reported bilateral transport product trade flows, market shares, and supplier concentration with the Asian Transport Observatory.",
+    "Explore global bilateral imports and exports for selected transport products, including market shares and trade concentration, with the Asian Transport Observatory.",
   icons: {
     icon: "/ATO_logo.jpg",
   },
