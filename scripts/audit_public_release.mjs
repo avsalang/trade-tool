@@ -45,6 +45,24 @@ if (trade.meta?.publication?.underlyingObservationRowsIncluded !== false) {
 if (!trade.reportingViews?.imports || !trade.reportingViews?.exports) {
   throw new Error("Both reported-import and reported-export views are required.");
 }
+if (!Array.isArray(trade.productGroups) || !trade.productGroups.length) {
+  throw new Error("Curated product groups are missing.");
+}
+const productCodes = new Set(trade.products.map((product) => product.code));
+const productIndexByCode = new Map(
+  trade.products.map((product, index) => [product.code, index]),
+);
+const groupedCodes = new Set();
+trade.productGroups.forEach((group) => {
+  if (!group.id || !group.label || !Array.isArray(group.codes) || !group.codes.length) {
+    throw new Error("A product group is invalid.");
+  }
+  group.codes.forEach((code) => {
+    if (!productCodes.has(code)) throw new Error(`${group.label} contains unknown HS ${code}.`);
+    if (groupedCodes.has(code)) throw new Error(`HS ${code} appears in more than one product group.`);
+    groupedCodes.add(code);
+  });
+});
 
 let activeTradeValues = 0;
 let summariesChecked = 0;
@@ -74,6 +92,35 @@ for (const [mode, view] of Object.entries(trade.reportingViews)) {
         throw new Error(`${mode} view contains an invalid snapshot summary.`);
       }
       summariesChecked += 1;
+    });
+  });
+  trade.productGroups.forEach((group) => {
+    const snapshots = view.groupSankeys?.[group.id];
+    if (!Array.isArray(snapshots) || snapshots.length !== trade.years.length) {
+      throw new Error(`${mode} ${group.label} Sankey series is incomplete.`);
+    }
+    snapshots.forEach((snapshot, yearIndex) => {
+      if (
+        !Number.isFinite(snapshot.totalBilateral) ||
+        !Array.isArray(snapshot.routes) ||
+        snapshot.routes.length > 100 ||
+        !Array.isArray(snapshot.residualRows)
+      ) {
+        throw new Error(`${mode} ${group.label} contains an invalid Sankey snapshot.`);
+      }
+      const expectedTotal = group.codes.reduce((sum, code) => {
+        const productIndex = productIndexByCode.get(code);
+        return (
+          sum +
+          (view.snapshotSummaries[productIndex]?.[yearIndex]?.totalBilateral || 0)
+        );
+      }, 0);
+      const tolerance = Math.max(1e-6, Math.abs(expectedTotal) * 1e-10);
+      if (Math.abs(snapshot.totalBilateral - expectedTotal) > tolerance) {
+        throw new Error(
+          `${mode} ${group.label} ${trade.years[yearIndex]} does not equal its product totals.`,
+        );
+      }
     });
   });
 }

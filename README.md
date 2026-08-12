@@ -5,10 +5,12 @@ A static Asian Transport Observatory dashboard with two modules:
 - **Trade Flow Explorer** presents annual product trade snapshots and trends.
 - **EV Value Chain** presents the five-stage value-chain Sankey.
 
-The Trade Flow Explorer currently covers 68 HS product codes. This includes
-seven ICE passenger-vehicle HS6 codes under **General vehicle types**. They are
-shown separately from broad HS 8703. The dashboard analyzes one product code at
-a time.
+The Trade Flow Explorer currently covers 68 HS product codes. Users can examine
+one product, select a curated product group, or combine multiple non-overlapping
+HS codes. The grouped Sankey connects the selection to supplier and importing
+economies, with trade outside the named relationships included under **Other
+economies**. The scope includes seven ICE passenger-vehicle HS6 codes under
+**General vehicle types**, shown separately from broad HS 8703.
 
 The application is designed for GitHub Pages and contains no data-download or
 export controls.
@@ -24,7 +26,9 @@ They are deliberately reduced for browser presentation:
 
 - Trade totals, rankings, HHI, and trend indicators are precomputed from the
   validated source. Only the 100 leading bilateral routes for each
-  product-year are included for the interactive route views.
+  product-year are included for the interactive route views. Compact grouped
+  route summaries support the grouped Sankey without publishing the underlying
+  observation rows.
 - EV Sankey data retains leading economies and combines remaining flows into
   **Other economies**. The underlying bilateral link table is not included.
 

@@ -477,27 +477,93 @@ function Segment({ active, children, onClick, disabled = false }) {
   );
 }
 
-function ProductSelect({ groups, selectedCode, onChange }) {
+function GroupCheckbox({ checked, onChange, ariaLabel }) {
   return (
-    <label className="select-wrap select-wrap--product product-select">
-      <span>Product code</span>
-      <select
-        value={selectedCode}
-        onChange={(event) => onChange(event.target.value)}
-        aria-label="Product code"
-      >
-        {groups.map((group) => (
-          <optgroup key={group.label} label={group.label}>
-            {group.products.map((product) => (
-              <option key={product.code} value={product.code}>
-                {`HS ${product.code} · ${product.selectorLabel || product.label}`}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
-      <ChevronDown size={15} />
-    </label>
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={onChange}
+      aria-label={ariaLabel}
+    />
+  );
+}
+
+function ProductMultiSelect({
+  groups,
+  productGroups,
+  selectedCodes,
+  selectedLabel,
+  onSelectGroup,
+  onToggleProduct,
+}) {
+  const selectedSet = new Set(selectedCodes);
+  const isExactGroup = (group) =>
+    group.codes.length === selectedSet.size &&
+    group.codes.every((code) => selectedSet.has(code));
+
+  return (
+    <details className="product-multiselect">
+      <summary aria-label="Product or group">
+        <span>
+          <small>Product or group</small>
+          <strong>{selectedLabel}</strong>
+        </span>
+        <ChevronDown size={15} />
+      </summary>
+      <div className="product-multiselect__menu">
+        <p>Select a product group or choose any combination of HS codes.</p>
+        <div className="product-multiselect__options">
+          {groups.map((group) => {
+            const productGroup = productGroups.find(
+              (item) => item.label === group.label,
+            );
+            return (
+            <fieldset key={group.label}>
+              <legend>
+                {productGroup ? (
+                  <label className="product-multiselect__group-toggle">
+                    <GroupCheckbox
+                      checked={isExactGroup(productGroup)}
+                      ariaLabel={`Select ${group.label} group`}
+                      onChange={(event) => {
+                        onSelectGroup(productGroup.id, event.target.checked);
+                        if (event.target.checked) {
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                        }
+                      }}
+                    />
+                    <span>
+                      <strong>{group.label}</strong>
+                      <small>{productGroup.codes.length} HS codes</small>
+                    </span>
+                    <em>Group</em>
+                  </label>
+                ) : (
+                  <span>{group.label}</span>
+                )}
+              </legend>
+              {group.products.map((product) => (
+                <label key={product.code}>
+                  <input
+                    type="checkbox"
+                    checked={selectedSet.has(product.code)}
+                    onChange={() => onToggleProduct(product.code)}
+                  />
+                  <span>
+                    <strong>HS {product.code}</strong>
+                    <small>{product.selectorLabel || product.label}</small>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            );
+          })}
+        </div>
+        <small className="product-multiselect__note">
+          Overlapping broad and detailed codes are not combined. Selecting one replaces the other.
+        </small>
+      </div>
+    </details>
   );
 }
 
@@ -960,7 +1026,7 @@ function TradeFlowNode(props) {
     isActive,
     ...rest
   } = props;
-  const isSupplier = payload?.role === "supplier";
+  const isSupplier = payload?.role === "supplier" || payload?.role === "scope";
   const labelX = isSupplier ? x - 12 : x + width + 12;
   const anchor = isSupplier ? "end" : "start";
   const lines = wrapSankeyLabel(payload?.name ?? `Node ${index + 1}`);
@@ -1080,7 +1146,9 @@ function getSankeyHover(entry, type) {
       y: (entry.sourceY + entry.targetY) / 2,
       title: `${sourceName} → ${targetName}`,
       value: formatUsdThousand(value),
-      subtitle: link.aggregated
+      subtitle: link.scopeLink
+        ? "Supplier share of the selected product group"
+        : link.aggregated
         ? "Routes not shown separately"
         : "Bilateral trade value",
     };
@@ -1091,7 +1159,9 @@ function getSankeyHover(entry, type) {
     y: entry.y + entry.height / 2,
     title: node?.name || "Trade economy",
     value: formatUsdThousand(node?.totalValue || 0),
-    subtitle: node?.aggregated
+    subtitle: node?.role === "scope"
+      ? "Selected product group"
+      : node?.aggregated
       ? "Trade not shown separately"
       : node?.role === "supplier"
         ? "Exports shown from this economy"
@@ -1102,6 +1172,7 @@ function getSankeyHover(entry, type) {
 function TradeSankey({
   routes,
   economies,
+  scopeLabel,
   selectedEconomyIndex,
   residualRows,
   totalValue,
@@ -1172,7 +1243,7 @@ function TradeSankey({
     const connectedImporters = importerIndexes.filter((economyIndex) =>
       visibleImporterTotals.has(economyIndex),
     );
-    const nodes = [
+    let nodes = [
       ...connectedSuppliers.map((economyIndex, index) => ({
         name: economies[economyIndex]?.name || "Unknown",
         role: "supplier",
@@ -1196,7 +1267,7 @@ function TradeSankey({
         index,
       ]),
     );
-    const links = visibleRoutes.map((route) => ({
+    let links = visibleRoutes.map((route) => ({
       source: nodeIndex.get(`supplier-${route.supplierIndex}`),
       target: nodeIndex.get(`importer-${route.importerIndex}`),
       value: route.value,
@@ -1258,6 +1329,45 @@ function TradeSankey({
       }
     }
 
+    if (scopeLabel) {
+      const supplierValues = new Map();
+      links.forEach((link) => {
+        supplierValues.set(
+          link.source,
+          (supplierValues.get(link.source) || 0) + link.value,
+        );
+      });
+      const originalNodes = nodes;
+      const originalLinks = links;
+      nodes = [
+        {
+          name: scopeLabel,
+          role: "scope",
+          economyIndex: null,
+          totalValue: totalValue || residualValue + visibleValue,
+          color: "#0F766E",
+          aggregated: true,
+        },
+        ...originalNodes,
+      ];
+      links = [
+        ...[...supplierValues.entries()].map(([supplierIndex, value]) => ({
+          source: 0,
+          target: supplierIndex + 1,
+          value,
+          sourceName: scopeLabel,
+          targetName: originalNodes[supplierIndex]?.name || "Supplier economy",
+          color: originalNodes[supplierIndex]?.color || "#0F766E",
+          scopeLink: true,
+        })),
+        ...originalLinks.map((link) => ({
+          ...link,
+          source: link.source + 1,
+          target: link.target + 1,
+        })),
+      ];
+    }
+
     return {
       nodes,
       links,
@@ -1266,7 +1376,7 @@ function TradeSankey({
         connectedImporters.length + (residualValue > 0 ? 1 : 0),
       ),
     };
-  }, [economies, residualRows, routes, totalValue]);
+  }, [economies, residualRows, routes, scopeLabel, totalValue]);
 
   if (!sankeyData.links.length) {
     return <div className="empty-state">No bilateral trade is available for this selection.</div>;
@@ -1475,6 +1585,7 @@ function buildSnapshotAnalysis(
   productIndexes,
   yearIndex,
   reporterEconomyIndex = null,
+  publishedGroupSnapshot = null,
 ) {
   const view = dataset.reportingViews[reportingMode];
   const selectedSet = new Set(productIndexes);
@@ -1556,29 +1667,42 @@ function buildSnapshotAnalysis(
   }
 
   const routeTotals = new Map();
-  view.records.forEach(([productIndex, importerIndex, exporterIndex, values]) => {
-    if (!selectedSet.has(productIndex)) return;
-    const recordReporterIndex =
-      reportingMode === "exports" ? exporterIndex : importerIndex;
-    if (
-      reporterEconomyIndex !== null &&
-      recordReporterIndex !== reporterEconomyIndex
-    ) return;
-    const value = values[yearIndex];
-    if (!Number.isFinite(value) || value <= 0) return;
-    if (
-      isSpecialEconomy(dataset.economies[exporterIndex]) ||
-      isSpecialEconomy(dataset.economies[importerIndex])
-    ) return;
-    const key = `${exporterIndex}|${importerIndex}`;
-    const row = routeTotals.get(key) || {
-      supplierIndex: exporterIndex,
-      importerIndex,
-      value: 0,
-    };
-    row.value += value;
-    routeTotals.set(key, row);
-  });
+  if (publishedGroupSnapshot && reporterEconomyIndex === null) {
+    (publishedGroupSnapshot.routes || []).forEach(
+      ([exporterIndex, importerIndex, value]) => {
+        if (!Number.isFinite(value) || value <= 0) return;
+        routeTotals.set(`${exporterIndex}|${importerIndex}`, {
+          supplierIndex: exporterIndex,
+          importerIndex,
+          value,
+        });
+      },
+    );
+  } else {
+    view.records.forEach(([productIndex, importerIndex, exporterIndex, values]) => {
+      if (!selectedSet.has(productIndex)) return;
+      const recordReporterIndex =
+        reportingMode === "exports" ? exporterIndex : importerIndex;
+      if (
+        reporterEconomyIndex !== null &&
+        recordReporterIndex !== reporterEconomyIndex
+      ) return;
+      const value = values[yearIndex];
+      if (!Number.isFinite(value) || value <= 0) return;
+      if (
+        isSpecialEconomy(dataset.economies[exporterIndex]) ||
+        isSpecialEconomy(dataset.economies[importerIndex])
+      ) return;
+      const key = `${exporterIndex}|${importerIndex}`;
+      const row = routeTotals.get(key) || {
+        supplierIndex: exporterIndex,
+        importerIndex,
+        value: 0,
+      };
+      row.value += value;
+      routeTotals.set(key, row);
+    });
+  }
   if (reporterEconomyIndex !== null) {
     leadingRouteTotals.forEach((value, key) => {
       const [supplierIndex, importerIndex] = key.split("|").map(Number);
@@ -1679,7 +1803,11 @@ function buildSnapshotAnalysis(
     reporterHhi,
     routes,
     mapNodeTotals,
-    sankeyResiduals: concentrationAvailable ? summaries[0]?.sankeyResiduals || {} : {},
+    sankeyResiduals: publishedGroupSnapshot
+      ? { 100: publishedGroupSnapshot.residualRows || [] }
+      : concentrationAvailable
+        ? summaries[0]?.sankeyResiduals || {}
+        : {},
   };
 }
 
@@ -1850,6 +1978,7 @@ export default function TradeExplorerApp() {
   const [dataset, setDataset] = useState(null);
   const [loadError, setLoadError] = useState("");
   const [productCodes, setProductCodes] = useState([DEFAULT_PRODUCT]);
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [reportingMode, setReportingMode] = useState("imports");
   const [year, setYear] = useState(2024);
   const [flowLimit, setFlowLimit] = useState(DEFAULT_FLOW_LIMIT);
@@ -1891,7 +2020,8 @@ export default function TradeExplorerApp() {
 
   const selectedProducts = useMemo(() => {
     if (!dataset) return [];
-    return dataset.products.filter((product) => product.code === productCodes[0]);
+    const selectedCodes = new Set(productCodes);
+    return dataset.products.filter((product) => selectedCodes.has(product.code));
   }, [dataset, productCodes]);
   const effectiveProducts = selectedProducts;
   const selectedProductIndexes = useMemo(
@@ -1899,20 +2029,60 @@ export default function TradeExplorerApp() {
     [dataset, effectiveProducts],
   );
   const selectedProductLabel = useMemo(() => {
-    if (!selectedProducts.length) return "Product not selected";
+    const group = dataset?.productGroups?.find(
+      (item) => item.id === selectedGroupId,
+    );
+    if (group) return `${group.label} · ${group.codes.length} HS codes`;
+    if (!selectedProducts.length) return "No product selected";
+    if (selectedProducts.length > 1) {
+      return `${selectedProducts.length} selected HS codes`;
+    }
     const product = selectedProducts[0];
     return `HS ${product.code} · ${product.selectorLabel || product.label}`;
-  }, [selectedProducts]);
+  }, [dataset, selectedGroupId, selectedProducts]);
   const selectedProduct = selectedProducts[0] || null;
-  const productCode = selectedProduct?.code || "";
-
-  const selectProductCode = useCallback((code) => {
-    setProductCodes([code]);
+  const selectedGroup = useMemo(
+    () => dataset?.productGroups?.find((group) => group.id === selectedGroupId) || null,
+    [dataset, selectedGroupId],
+  );
+  const clearProductInteractions = useCallback(() => {
     setSelectedRouteId(null);
     setSelectedEconomyIndex(null);
     setConnectionMode("all");
     setSankeyEconomyIndex(null);
   }, []);
+
+  const matchProductGroup = useCallback((codes) => {
+    const selected = new Set(codes);
+    return dataset?.productGroups?.find(
+      (group) =>
+        group.codes.length === selected.size &&
+        group.codes.every((code) => selected.has(code)),
+    ) || null;
+  }, [dataset]);
+
+  const selectProductGroup = useCallback((groupId, checked = true) => {
+    const group = dataset?.productGroups?.find((item) => item.id === groupId);
+    if (!group) return;
+    setSelectedGroupId(checked ? group.id : null);
+    setProductCodes(checked ? group.codes : []);
+    clearProductInteractions();
+  }, [clearProductInteractions, dataset]);
+
+  const toggleProductCode = useCallback((code) => {
+    const isSelected = productCodes.includes(code);
+    const nextCodes = isSelected
+      ? productCodes.filter((item) => item !== code)
+      : [
+          ...productCodes.filter(
+            (item) => !item.startsWith(code) && !code.startsWith(item),
+          ),
+          code,
+        ];
+    setProductCodes(nextCodes);
+    setSelectedGroupId(matchProductGroup(nextCodes)?.id || null);
+    clearProductInteractions();
+  }, [clearProductInteractions, matchProductGroup, productCodes]);
 
   const productGroups = useMemo(() => {
     if (!dataset) return [];
@@ -2339,8 +2509,28 @@ export default function TradeExplorerApp() {
       selectedProductIndexes,
       yearIndex,
       countryEconomyIndex,
+      selectedGroupId && countryEconomyIndex === null
+        ? dataset.reportingViews[reportingMode].groupSankeys?.[selectedGroupId]?.[yearIndex]
+        : null,
     );
-  }, [countryEconomyIndex, dataset, reportingMode, selectedProductIndexes, year]);
+  }, [countryEconomyIndex, dataset, reportingMode, selectedGroupId, selectedProductIndexes, year]);
+
+  const sankeyAnalysis = useMemo(() => {
+    if (!dataset || !selectedProductIndexes.length) return null;
+    if (countryEconomyIndex === null) return analysis;
+    const yearIndex = dataset.years.indexOf(year);
+    if (yearIndex < 0) return null;
+    return buildSnapshotAnalysis(
+      dataset,
+      reportingMode,
+      selectedProductIndexes,
+      yearIndex,
+      null,
+      selectedGroupId
+        ? dataset.reportingViews[reportingMode].groupSankeys?.[selectedGroupId]?.[yearIndex]
+        : null,
+    );
+  }, [analysis, countryEconomyIndex, dataset, reportingMode, selectedGroupId, selectedProductIndexes, year]);
 
   const trendAnalysis = useMemo(() => {
     if (!dataset || !selectedProductIndexes.length) return null;
@@ -2398,8 +2588,8 @@ export default function TradeExplorerApp() {
     selectedEconomyIndex,
   ]);
   const sankeyFlows = useMemo(
-    () => (analysis?.routes || []).slice(0, 100),
-    [analysis],
+    () => (sankeyAnalysis?.routes || []).slice(0, 100),
+    [sankeyAnalysis],
   );
   const mapPayload = useMemo(
     () =>
@@ -2448,8 +2638,11 @@ export default function TradeExplorerApp() {
     reportingModeRef.current = reportingMode;
   }, [reportingMode]);
 
+  const hasAnalysis = Boolean(analysis);
+
   useEffect(() => {
-    if (!mapContainer.current || mapRef.current) return undefined;
+    if (!hasAnalysis || !mapContainer.current || mapRef.current) return undefined;
+    setMapReady(false);
     if (!canCreateWebGLContext()) {
       setMapError("WebGL is not available in this browser.");
       return undefined;
@@ -2583,11 +2776,12 @@ export default function TradeExplorerApp() {
       popupRef.current?.remove();
       map.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
-  }, [dataset]);
+  }, [dataset, hasAnalysis]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
+    if (!mapReady || !mapRef.current?.isStyleLoaded()) return;
     syncTradeLayers(mapRef.current, mapPayload);
     if (
       selectedRouteId &&
@@ -2598,7 +2792,7 @@ export default function TradeExplorerApp() {
   }, [analysis, mapPayload, mapReady, selectedRouteId]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
+    if (!mapReady || !mapRef.current?.getLayer("trade-flow-selected")) return;
     mapRef.current.setFilter("trade-flow-selected", [
       "==",
       ["get", "id"],
@@ -2607,7 +2801,7 @@ export default function TradeExplorerApp() {
   }, [mapReady, selectedRouteId]);
 
   useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
+    if (!mapReady || !mapRef.current?.getLayer("trade-node-selected")) return;
     mapRef.current.setFilter("trade-node-selected", [
       "==",
       ["get", "economyIndex"],
@@ -2674,6 +2868,7 @@ export default function TradeExplorerApp() {
       defaultProduct,
     );
     setProductCodes([defaultProduct?.code || DEFAULT_PRODUCT]);
+    setSelectedGroupId(null);
     setReportingMode("imports");
     setYear(Math.max(...(dataset?.years || [2024])));
     setFlowLimit(DEFAULT_FLOW_LIMIT);
@@ -2691,19 +2886,26 @@ export default function TradeExplorerApp() {
   if (loadError) {
     return <div className="application-loading">{loadError}</div>;
   }
-  if (!dataset || !analysis || !selectedProduct) {
+  if (!dataset) {
     return <div className="application-loading">Loading trade data…</div>;
   }
 
-  const hhi = hhiBand(analysis.overallHhi);
-  const defaultRange = defaultTrendRange(dataset.years, {
-    availableFrom: Math.max(
-      ...effectiveProducts.map(
-        (product) =>
-          product.availableFrom || product.activeFrom || Math.min(...dataset.years),
-      ),
-    ),
-  });
+  const hhi = analysis ? hhiBand(analysis.overallHhi) : null;
+  const defaultRange = defaultTrendRange(
+    dataset.years,
+    effectiveProducts.length
+      ? {
+          availableFrom: Math.max(
+            ...effectiveProducts.map(
+              (product) =>
+                product.availableFrom ||
+                product.activeFrom ||
+                Math.min(...dataset.years),
+            ),
+          ),
+        }
+      : dataset.products.find((product) => product.code === DEFAULT_PRODUCT),
+  );
   const hasFilters =
     productCodes.length !== 1 ||
     productCodes[0] !== DEFAULT_PRODUCT ||
@@ -2752,10 +2954,13 @@ export default function TradeExplorerApp() {
           </button>
           <div className="filter-section filter-section--scope">
             <span className="filter-section__label">Scope</span>
-          <ProductSelect
+          <ProductMultiSelect
             groups={productGroups}
-            selectedCode={productCode}
-            onChange={selectProductCode}
+            productGroups={dataset.productGroups || []}
+            selectedCodes={productCodes}
+            selectedLabel={selectedProductLabel}
+            onSelectGroup={selectProductGroup}
+            onToggleProduct={toggleProductCode}
           />
 
           <label className="select-wrap select-wrap--country">
@@ -2930,6 +3135,24 @@ export default function TradeExplorerApp() {
         </section>
 
         <div className="content">
+          {!analysis ? (
+            <section className="no-product-state" aria-live="polite">
+              <div className="no-product-state__icon" aria-hidden="true">
+                <FilterX size={28} />
+              </div>
+              <h1>No product selected</h1>
+              <p>Select a product group or one or more HS codes to load the trade data.</p>
+              <button
+                type="button"
+                onClick={() =>
+                  document.querySelector(".product-multiselect")?.setAttribute("open", "")
+                }
+              >
+                Choose products
+              </button>
+            </section>
+          ) : (
+          <>
           <header className="page-header">
             <div>
               <h1>
@@ -3146,27 +3369,25 @@ export default function TradeExplorerApp() {
           </div>
 
           <Panel
-            title="Bilateral trade structure"
+            title="Global bilateral trade structure"
             subtitle="Largest partners are named; all other trade is grouped under Other economies"
             className="sankey-panel sankey-panel--standalone"
           >
             <div className="sankey-basis-note">
-              Includes all reported trade. The route limit applies only to the map and table.
+              Includes all reported global trade. The route and economy filters apply only to the map and table.
             </div>
             <TradeSankey
               routes={sankeyFlows}
               economies={dataset.economies}
+              scopeLabel={
+                selectedGroup?.label ||
+                (effectiveProducts.length > 1
+                  ? `${effectiveProducts.length} selected HS codes`
+                  : null)
+              }
               selectedEconomyIndex={sankeyEconomyIndex}
-              residualRows={
-                countryEconomyIndex === null && effectiveProducts.length === 1
-                  ? analysis.sankeyResiduals?.[100] || []
-                  : []
-              }
-              totalValue={
-                countryEconomyIndex === null
-                  ? analysis.totalBilateral
-                  : analysis.totalReported
-              }
+              residualRows={sankeyAnalysis?.sankeyResiduals?.[100] || []}
+              totalValue={sankeyAnalysis?.totalBilateral || 0}
               onSelectEconomy={(economyIndex) => {
                 setSankeyEconomyIndex((current) =>
                   current === economyIndex ? null : economyIndex,
@@ -3247,6 +3468,8 @@ export default function TradeExplorerApp() {
               </span>
             </div>
           </footer>
+          </>
+          )}
         </div>
       </main>
     </div>

@@ -15,6 +15,53 @@ const STAGE_LEADER_LIMIT = 3;
 const TRADE_SANKEY_LIMITS = [25, 50, 100];
 const TRADE_SANKEY_NODE_LIMIT = 8;
 const TRADE_SANKEY_LINK_LIMIT = 32;
+const PRODUCT_GROUP_DEFINITIONS = [
+  {
+    id: "minerals-upstream",
+    label: "Minerals and upstream materials",
+    codes: ["260500", "250410", "270810", "271312", "253090", "283691"],
+  },
+  {
+    id: "processed-minerals",
+    label: "Processed minerals and chemicals",
+    codes: ["282200", "810520", "380110", "282520", "282619", "282690", "282739"],
+  },
+  {
+    id: "battery-materials",
+    label: "Battery materials",
+    codes: ["284190", "285390", "854519", "284169", "284290", "382499"],
+  },
+  {
+    id: "batteries-components",
+    label: "Batteries and components",
+    codes: ["850760", "850790"],
+  },
+  {
+    id: "electric-hybrid-vehicles",
+    label: "Electric and hybrid vehicles",
+    codes: [
+      "870220", "870230", "870240", "870340", "870350", "870360",
+      "870370", "870380", "870441", "870442", "870443", "870451",
+      "870452", "870460", "871160",
+    ],
+  },
+  {
+    id: "general-vehicle-types",
+    label: "General vehicle types",
+    codes: [
+      "8712", "870321", "870322", "870323", "870324", "870331",
+      "870332", "870333", "870210", "870290", "870310", "870390",
+      "870410", "870421", "870422", "870423", "870431", "870432",
+      "870490", "871110", "871120", "871130", "871140", "871150",
+      "871190",
+    ],
+  },
+  {
+    id: "other-transport-equipment",
+    label: "Other transport equipment",
+    codes: ["86", "88", "89"],
+  },
+];
 
 function finiteValue(value) {
   return Number.isFinite(value) ? value : null;
@@ -347,6 +394,72 @@ function buildTrendSummaries(productRecords, years, worldIndex, reportingSide) {
   return summaries;
 }
 
+function aggregateProductRecords(source, productCodes, worldIndex) {
+  const selectedIndexes = new Set(
+    source.products
+      .map((product, index) => productCodes.includes(String(product.code)) ? index : -1)
+      .filter((index) => index >= 0),
+  );
+  const validReporterYears = new Set();
+  source.records.forEach((record) => {
+    if (!selectedIndexes.has(record[0]) || record[2] !== worldIndex) return;
+    record[3].forEach((value, yearIndex) => {
+      if (Number.isFinite(value)) {
+        validReporterYears.add(`${record[0]}|${record[1]}|${yearIndex}`);
+      }
+    });
+  });
+
+  const records = new Map();
+  source.records.forEach((record) => {
+    if (!selectedIndexes.has(record[0])) return;
+    const key = `${record[1]}|${record[2]}`;
+    let aggregate = records.get(key);
+    if (!aggregate) {
+      aggregate = [0, record[1], record[2], source.years.map(() => null)];
+      records.set(key, aggregate);
+    }
+    record[3].forEach((value, yearIndex) => {
+      if (!Number.isFinite(value)) return;
+      if (
+        record[2] !== worldIndex &&
+        !validReporterYears.has(`${record[0]}|${record[1]}|${yearIndex}`)
+      ) {
+        return;
+      }
+      aggregate[3][yearIndex] = (aggregate[3][yearIndex] || 0) + value;
+    });
+  });
+  return [...records.values()];
+}
+
+function buildGroupSankeys(source, reportingSide, worldIndex) {
+  const output = {};
+  PRODUCT_GROUP_DEFINITIONS.forEach((group) => {
+    const groupRecords = aggregateProductRecords(source, group.codes, worldIndex);
+    output[group.id] = source.years.map((year, yearIndex) => {
+      const { summary, topRoutes } = buildSnapshot(
+        0,
+        yearIndex,
+        groupRecords,
+        worldIndex,
+        source.economies,
+        reportingSide,
+      );
+      return {
+        totalBilateral: summary.totalBilateral,
+        routes: topRoutes.map((route) => [
+          route.exporterIndex,
+          route.importerIndex,
+          route.value,
+        ]),
+        residualRows: summary.sankeyResiduals[TOP_ROUTE_LIMIT] || [],
+      };
+    });
+  });
+  return output;
+}
+
 function buildPublicTradeView(source, reportingSide) {
   const worldIndex = source.economies.findIndex(
     (economy) => economy.name === "World",
@@ -403,6 +516,7 @@ function buildPublicTradeView(source, reportingSide) {
     records,
     snapshotSummaries,
     trendSummaries,
+    groupSankeys: buildGroupSankeys(source, reportingSide, worldIndex),
   };
 }
 
@@ -429,6 +543,7 @@ function buildPublicTradeDataset(importSource, exportSource) {
     },
     years: importSource.years,
     products: importSource.products,
+    productGroups: PRODUCT_GROUP_DEFINITIONS,
     economies: importSource.economies,
     reportingViews: {
       imports: importView,

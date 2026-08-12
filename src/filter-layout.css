@@ -30,7 +30,7 @@
   text-transform: uppercase;
 }
 
-.filter-section--scope .select-wrap--product {
+.filter-section--scope .product-multiselect {
   width: auto;
   min-width: 280px;
   flex: 1 1 360px;
@@ -85,7 +85,7 @@
     display: none;
   }
 
-  .filter-section--scope .select-wrap--product {
+  .filter-section--scope .product-multiselect {
     width: clamp(430px, 22vw, 460px);
     min-width: 0;
     max-width: 460px;
@@ -121,7 +121,7 @@
     flex-basis: 100%;
   }
 
-  .filter-section--scope .select-wrap--product {
+  .filter-section--scope .product-multiselect {
     flex-basis: min(100%, 420px);
   }
 }
@@ -187,7 +187,7 @@
   }
 
   .filter-section__label,
-  .filter-section--scope .select-wrap--product,
+  .filter-section--scope .product-multiselect,
   .filter-section--scope .reporting-mode-filter,
   .filter-section--scope .select-wrap--country,
   .filter-section--display .analysis-mode-filter,
@@ -199,7 +199,7 @@
   }
 
   .filter-section__label { order: 0; }
-  .filter-section--scope .select-wrap--product { order: 1; }
+  .filter-section--scope .product-multiselect { order: 1; }
   .filter-section--scope .select-wrap--country { order: 2; }
   .filter-section--scope .reporting-mode-filter { order: 3; }
   .filter-section--display .analysis-mode-filter { order: 1; }
@@ -207,7 +207,7 @@
   .filter-section--display .flow-filter { order: 3; }
   .filter-section--display .reset-button { order: 4; }
 
-  .filter-section--scope .select-wrap--product,
+  .filter-section--scope .product-multiselect,
   .filter-section--scope .select-wrap--country {
     width: 100%;
     flex-basis: 100%;

@@ -1479,12 +1479,13 @@ button {
 .product-multiselect fieldset {
   display: grid;
   gap: 4px;
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   padding: 0;
   border: 0;
 }
 
 .product-multiselect legend {
+  width: 100%;
   margin-bottom: 6px;
   color: var(--slate-500);
   font-size: 12px;
@@ -1501,6 +1502,11 @@ button {
   padding: 8px;
   border-radius: 7px;
   cursor: pointer;
+}
+
+.product-multiselect fieldset > label:not(.product-multiselect__group-toggle) {
+  width: calc(100% - 24px);
+  margin-left: 24px;
 }
 
 .product-multiselect fieldset label:hover {
@@ -3228,21 +3234,25 @@ body {
 
 .product-multiselect__group-toggle,
 .product-multiselect fieldset .product-multiselect__group-toggle {
-  display: inline-flex;
-  grid-template-columns: none;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   margin: 0;
-  padding: 2px 4px;
-  color: #2563eb;
-  border-radius: 5px;
+  padding: 9px 10px;
+  color: var(--slate-900);
+  border: 1px solid #d7e2ea;
+  border-radius: 7px;
+  background: #f4f8fc;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
 
 .product-multiselect fieldset .product-multiselect__group-toggle:hover {
-  background: #eff6ff;
+  border-color: #a9c2df;
+  background: #eaf2fa;
 }
 
 .product-multiselect__group-toggle input {
@@ -3250,9 +3260,90 @@ body {
 }
 
 .product-multiselect fieldset .product-multiselect__group-toggle > span {
-  display: inline;
+  display: grid;
+  gap: 2px;
+  color: var(--slate-900);
+  font-size: 13px;
+  text-transform: none;
+}
+
+.product-multiselect fieldset .product-multiselect__group-toggle > span strong {
+  font-size: 13px;
+}
+
+.product-multiselect fieldset .product-multiselect__group-toggle > span small {
+  color: var(--slate-500);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.product-multiselect__group-toggle em {
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.no-product-state {
+  display: grid;
+  min-height: 430px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  border: 1px solid var(--slate-200);
+  border-radius: 12px;
+  color: var(--slate-500);
+  background: #fff;
+  text-align: center;
+}
+
+.no-product-state__icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 50%;
   color: #2563eb;
-  font-size: 12px;
+  background: #eff6ff;
+}
+
+.no-product-state h1,
+.no-product-state p {
+  margin: 0;
+}
+
+.no-product-state h1 {
+  color: var(--slate-900);
+  font-size: 23px;
+}
+
+.no-product-state p {
+  max-width: 460px;
+  font-size: 14px;
+}
+
+.no-product-state button {
+  margin-top: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #2563eb;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.no-product-state button:hover {
+  background: #1d4ed8;
 }
 
 @media (min-width: 1081px) {
