@@ -402,20 +402,26 @@ button {
 .stage-column-headings {
   position: relative;
   z-index: 3;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  padding: 0 45px 8px;
+  display: flex;
+  height: 54px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0 122px;
+  padding: 0 0 8px;
 }
 
 .stage-column-headings > div {
+  width: 0;
   min-width: 0;
-  padding: 0 8px;
+  flex: 0 0 0;
   text-align: center;
 }
 
 .stage-column-headings strong,
 .stage-column-headings span {
   display: block;
+  width: 160px;
+  transform: translateX(-50%);
 }
 
 .stage-column-headings strong {
@@ -434,9 +440,9 @@ button {
   position: absolute;
   z-index: 0;
   top: 86px;
-  right: 150px;
+  right: 115px;
   bottom: 30px;
-  left: 150px;
+  left: 115px;
   display: flex;
   justify-content: space-between;
   pointer-events: none;
