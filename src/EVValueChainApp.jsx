@@ -31,7 +31,7 @@ function formatUsdThousand(value, digits = 1) {
 
 function formatDetailedUsd(value) {
   if (!Number.isFinite(value)) return "—";
-  return `${formatUsdThousand(value, 2)} · ${Math.round(value).toLocaleString("en-US")} US$ thousand`;
+  return `${formatUsdThousand(value, 2)} · ${Math.round(value * 1_000).toLocaleString("en-US")} US$`;
 }
 
 function formatPercent(value, digits = 1) {
@@ -339,7 +339,7 @@ function syncTradeLayers(map, payload) {
           "#d97706",
           "importer",
           "#2563eb",
-          "#7c3aed",
+          "#c026d3",
         ],
         "circle-radius": [
           "interpolate",
@@ -2446,7 +2446,7 @@ export default function EVValueChainApp() {
               <strong>Asian Transport Observatory</strong>
               <span>
                 Source: UN Comtrade API · importer-reported values in current
-                US$ thousand
+                US$
               </span>
             </div>
             <p>

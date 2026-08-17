@@ -53,7 +53,7 @@ function formatUsdThousand(value, digits = 1) {
 
 function formatDetailedUsd(value) {
   if (!Number.isFinite(value)) return "—";
-  return `${formatUsdThousand(value, 2)} · ${Math.round(value).toLocaleString("en-US")} US$ thousand`;
+  return `${formatUsdThousand(value, 2)} · ${Math.round(value * 1_000).toLocaleString("en-US")} US$`;
 }
 
 function formatPercent(value, digits = 1) {
@@ -420,7 +420,7 @@ function syncTradeLayers(map, payload) {
           "#d97706",
           "importer",
           "#2563eb",
-          "#7c3aed",
+          "#c026d3",
         ],
         "circle-radius": [
           "interpolate",
@@ -789,7 +789,7 @@ function TrendSection({
               <div className="trend-chart-card__heading">
                 <div>
                   <h3>{reporterName ? `${flowLabel}s reported by ${reporterName}` : `${flowLabel}s reported by comparable economies`}</h3>
-                  <p>Current US$, thousands</p>
+                  <p>Current US$</p>
                 </div>
               </div>
               <div className="trend-chart trend-chart--value">
@@ -3464,7 +3464,7 @@ export default function TradeExplorerApp() {
               <strong>Asian Transport Observatory</strong>
               <span>
                 Source: {dataset.meta?.source || "UN Comtrade"}. Annual
-                {` ${reportingMode === "exports" ? "exporter" : "importer"}-reported trade`}, current US$ thousands. HS classifications follow the reporting year.
+                {` ${reportingMode === "exports" ? "exporter" : "importer"}-reported trade`}, in current US$. HS classifications follow the reporting year.
               </span>
             </div>
           </footer>
