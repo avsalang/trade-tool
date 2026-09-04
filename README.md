@@ -5,6 +5,10 @@ A static Asian Transport Observatory dashboard with two modules:
 - **Trade Flow Explorer** presents annual product trade snapshots and trends.
 - **EV Value Chain** presents the five-stage value-chain Sankey.
 
+Public-facing **About** and **How to** pages describe the coverage,
+methodology, interpretation and use of both modules. The How-to page includes
+annotated screenshots of the current interface.
+
 The Trade Flow Explorer currently covers 68 HS product codes. Users can examine
 one product, select a curated product group, or combine multiple non-overlapping
 HS codes. The grouped Sankey connects the selection to supplier and importing

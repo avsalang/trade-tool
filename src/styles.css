@@ -85,6 +85,22 @@ button {
   overflow-y: auto;
 }
 
+.platform-sidebar__utility,
+.platform-sidebar__tools {
+  display: flex;
+  flex-direction: column;
+}
+
+.platform-sidebar__divider {
+  height: 1px;
+  margin: 10px 12px 14px;
+  background: rgba(255, 255, 255, .14);
+}
+
+.platform-sidebar__link--utility span {
+  font-weight: 500;
+}
+
 .platform-sidebar__link {
   display: flex;
   min-height: 48px;
@@ -175,6 +191,20 @@ button {
     scrollbar-color: rgba(191, 219, 254, .65) transparent;
   }
 
+  .platform-sidebar__utility,
+  .platform-sidebar__tools {
+    flex: 0 0 auto;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .platform-sidebar__divider {
+    width: 1px;
+    height: 30px;
+    flex: 0 0 1px;
+    margin: 5px 2px;
+  }
+
   .platform-sidebar__nav::-webkit-scrollbar {
     height: 4px;
   }
@@ -209,6 +239,434 @@ button {
   color: #334155;
   font-size: 14px;
   background: #f0f4f8;
+}
+
+/* About and how-to pages — aligned with the ATO e-mobility tool family. */
+.guidance-shell {
+  --navy: #0d2742;
+  --blue: #1769aa;
+  --slate-900: #172033;
+  --slate-700: #3d4b5f;
+  --slate-600: #526176;
+  --slate-500: #6e7d90;
+  --slate-200: #dce4ec;
+  --slate-100: #edf2f6;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
+.guidance-workspace {
+  min-height: calc(100dvh - var(--header-height));
+  background: var(--slate-100);
+}
+
+.guidance-content {
+  width: 100%;
+}
+
+.guidance-footer {
+  margin-top: 12px;
+}
+
+.page {
+  width: min(1540px, 100%);
+  min-height: calc(100vh - 230px);
+  margin: 0 auto;
+  padding: 23px 24px 32px;
+}
+
+.page > * + * {
+  margin-top: 17px;
+}
+
+.about-page {
+  width: min(1040px, calc(100% - 48px));
+  padding: 32px 0;
+}
+
+.about-page > * + * {
+  margin-top: 32px;
+}
+
+.about-heading > span {
+  display: block;
+  color: #0369a1;
+  font-size: 12pt;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.about-heading h1 {
+  margin: 8px 0 0;
+  color: #020617;
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.about-heading p {
+  max-width: 760px;
+  margin: 12px 0 0;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.75;
+}
+
+.about-panel {
+  padding: 28px;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.about-panel section + section {
+  margin-top: 32px;
+}
+
+.about-panel h3 {
+  margin: 0 0 16px;
+  color: var(--slate-900);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.about-panel p {
+  margin: 0;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.75;
+  text-align: justify;
+}
+
+.about-panel p + p {
+  margin-top: 16px;
+}
+
+.about-panel a,
+.howto-reading-guide a {
+  color: var(--blue);
+  font-weight: 500;
+  text-underline-offset: 2px;
+}
+
+.about-panel a:hover,
+.howto-reading-guide a:hover {
+  color: #123555;
+}
+
+.howto-page {
+  width: min(1180px, calc(100% - 48px));
+  padding: 32px 0 48px;
+}
+
+.howto-page > * + * {
+  margin-top: 24px;
+}
+
+.howto-heading h1 {
+  margin: 0;
+  color: #020617;
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.howto-heading p {
+  max-width: 780px;
+  margin: 12px 0 0;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.65;
+}
+
+.howto-step {
+  overflow: hidden;
+  border: 1px solid var(--slate-200);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.howto-step > header {
+  padding: 24px;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.howto-step h2 {
+  margin: 0;
+  color: var(--slate-900);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.howto-step header p {
+  max-width: 900px;
+  margin: 6px 0 0;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.6;
+}
+
+.howto-figure {
+  margin: 0;
+  padding: 24px;
+  border-bottom: 1px solid var(--slate-200);
+  background: #f8fafc;
+}
+
+.howto-image-wrap {
+  position: relative;
+  overflow: visible;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.howto-image-wrap img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 5px;
+}
+
+.howto-highlight {
+  position: absolute;
+  left: var(--callout-left);
+  top: var(--callout-top);
+  width: var(--callout-width);
+  height: var(--callout-height);
+  border: 2px solid #0f7c89;
+  border-radius: 5px;
+  background: rgba(15, 124, 137, 0.05);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.howto-highlight b {
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #075985;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.2);
+  font-size: 12pt;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+}
+
+.howto-highlight b > span,
+.howto-figure figcaption b > span {
+  display: block;
+  color: inherit;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.howto-figure figcaption {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.howto-figure figcaption span {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.45;
+}
+
+.howto-figure figcaption b {
+  width: 25px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #075985;
+  font-size: 12pt;
+  font-weight: 650;
+  line-height: 1;
+  text-align: center;
+}
+
+.howto-definitions {
+  border-bottom: 1px solid var(--slate-200);
+  background: #ffffff;
+}
+
+.howto-definitions h3 {
+  margin: 0;
+  padding: 20px 24px 10px;
+  color: var(--slate-900);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.howto-definition-group {
+  border-top: 1px solid var(--slate-200);
+}
+
+.howto-definition-group summary {
+  padding: 14px 24px;
+  color: var(--slate-700);
+  font-size: 12pt;
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.howto-definition-group summary:hover,
+.howto-definition-group[open] summary {
+  background: #f8fafc;
+}
+
+.howto-definition-group dl {
+  margin: 0;
+  padding: 0 24px 16px;
+}
+
+.howto-definition-group dl > div {
+  display: grid;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  gap: 20px;
+  padding: 11px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.howto-definition-group dt,
+.howto-definition-group dd {
+  margin: 0;
+  font-size: 12pt;
+  line-height: 1.55;
+}
+
+.howto-definition-group dt {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.howto-definition-group dd {
+  color: var(--slate-600);
+}
+
+.howto-page-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--slate-200);
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.howto-page-links a {
+  color: var(--blue);
+  font-size: 12pt;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.howto-page-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.howto-tab-section {
+  scroll-margin-top: 24px;
+}
+
+.howto-reading-guide {
+  padding: 24px 28px 28px;
+}
+
+.howto-reading-guide p {
+  max-width: 1040px;
+  margin: 0;
+  color: var(--slate-600);
+  font-size: 12pt;
+  line-height: 1.7;
+}
+
+.howto-reading-guide p + p {
+  margin-top: 16px;
+}
+
+.howto-reading-guide strong {
+  color: var(--slate-700);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .about-page {
+    width: calc(100% - 36px);
+    padding: 24px 0;
+  }
+
+  .about-panel {
+    padding: 18px;
+  }
+
+  .about-panel p {
+    text-align: left;
+  }
+
+  .howto-page {
+    width: calc(100% - 24px);
+    padding: 24px 0 36px;
+  }
+
+  .howto-step > header,
+  .howto-figure,
+  .howto-definitions h3,
+  .howto-definition-group summary,
+  .howto-definition-group dl {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .howto-highlight {
+    border-width: 2px;
+  }
+
+  .howto-highlight b {
+    top: -12px;
+    left: -12px;
+    width: 25px;
+    height: 25px;
+  }
+
+  .howto-definition-group dl > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .howto-page-links {
+    display: grid;
+    gap: 10px;
+  }
+
+  .howto-reading-guide {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
 }
 
 .app-shell {

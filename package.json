@@ -8,6 +8,7 @@
     "audit:public": "node scripts/audit_public_release.mjs",
     "dev": "vinext dev --hostname 127.0.0.1 --port 4173",
     "build": "node scripts/build.mjs",
+    "test:guidance": "node scripts/guidance_pages.e2e.mjs",
     "start": "vinext start --hostname 127.0.0.1 --port 4173",
     "dev:pages": "vite --config vite.pages.config.js --host 127.0.0.1 --port 4173",
     "prebuild:pages": "npm run audit:public",
