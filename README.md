@@ -16,8 +16,6 @@ economies, with trade outside the named relationships included under **Other
 economies**. The scope includes seven ICE passenger-vehicle HS6 codes under
 **General vehicle types**, shown separately from broad HS 8703.
 
-The application is designed for GitHub Pages and contains no data-download or
-export controls.
 
 ## Public data boundary
 
@@ -65,12 +63,3 @@ Build and preview the static release:
 npm run build:pages
 npm run preview:pages
 ```
-
-## GitHub Pages
-
-The workflow in `.github/workflows/deploy-pages.yml` deploys pushes to `main`.
-It determines the repository base path automatically. The optional repository
-variable `VITE_BASE_PATH` can override that path when necessary.
-
-Before publishing, configure the GitHub repository under **Settings → Pages**
-to use **GitHub Actions** as its source.
