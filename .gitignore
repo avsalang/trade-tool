@@ -4,6 +4,7 @@
 /outputs/
 /data/
 /docs/
+*.md
 
 # Local ingestion, download, and QA utilities are not part of the public site.
 /scripts/__pycache__/
@@ -14,6 +15,10 @@
 /scripts/build_trade_data.mjs
 /scripts/sync_ev_module.mjs
 /scripts/qa*.mjs
+/scripts/build_*.mjs
+/scripts/build_*.py
+/scripts/capture_*.mjs
+/scripts/*e2e*.mjs
 
 # Only the audited publication extracts may be committed from public/data.
 /public/data/*
