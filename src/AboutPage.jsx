@@ -57,7 +57,7 @@ export default function AboutPage() {
               available.
             </p>
             <p>
-              Values are annual reporter-reported imports or exports from UN Comtrade
+              Values are annual importer-reported or exporter-reported trade from UN Comtrade
               and are presented in current US dollars. Importer and exporter reports
               may differ because of valuation, timing, partner attribution,
               transshipment and reporting practices. Missing observations are not

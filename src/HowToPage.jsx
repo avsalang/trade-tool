@@ -55,39 +55,39 @@ function DefinitionGroups({ groups }) {
 }
 
 const NAVIGATION_CALLOUTS = [
-  { marker: "A", label: "Choose an analysis page from the navigation panel.", left: "1%", top: "3%", width: "13%", height: "94%" },
-  { marker: "B", label: "Select a product, product group or combination of compatible HS codes.", left: "22.8%", top: "28%", width: "39.7%", height: "20%" },
-  { marker: "C", label: "Set the economy and choose importer- or exporter-reported trade.", left: "63.6%", top: "28%", width: "35.1%", height: "20%" },
+  { marker: "A", label: "Choose an analysis page from the navigation panel.", left: "0.6%", top: "3%", width: "13.8%", height: "94%" },
+  { marker: "B", label: "Select a product, product group or combination of compatible HS codes.", left: "23.1%", top: "28.5%", width: "36.7%", height: "18%" },
+  { marker: "C", label: "Choose a reporting economy and whether the importer or exporter reported the trade.", left: "60%", top: "28.5%", width: "37.7%", height: "18%" },
   { marker: "D", label: "Choose a snapshot year or a trend period. Route limits apply to the map and table.", left: "22.8%", top: "50%", width: "57.1%", height: "17%" },
 ];
 
 const SNAPSHOT_CALLOUTS = [
-  { marker: "A", label: "Read total reported trade and partner concentration for the current selection.", left: "1.2%", top: "9%", width: "97.4%", height: "16.5%" },
-  { marker: "B", label: "Switch between the route map and table. Both follow the Routes shown setting.", left: "1.2%", top: "27%", width: "97.4%", height: "6%" },
-  { marker: "C", label: "Select an economy to focus on its connections. Reset the map before choosing another.", left: "1.2%", top: "36%", width: "97.4%", height: "62.5%" },
-  { marker: "D", label: "Use the map key to interpret node roles, routes and values.", left: "2.2%", top: "70%", width: "20%", height: "28%" },
+  { marker: "A", label: "Read total reported trade and partner concentration for the current selection.", left: "1.5%", top: "12.2%", width: "97.2%", height: "15.6%" },
+  { marker: "B", label: "Switch between the route map and table. Both follow the Routes shown setting.", left: "1.5%", top: "29.7%", width: "97.2%", height: "5%" },
+  { marker: "C", label: "Select an economy to focus on its connections. Reset the map before choosing another.", left: "1.5%", top: "38%", width: "97.2%", height: "61.5%" },
+  { marker: "D", label: "Use the map key to interpret node roles, routes and values.", left: "2.4%", top: "71%", width: "19.8%", height: "27.4%" },
 ];
 
 const TRENDS_CALLOUTS = [
-  { marker: "A", label: "Check reporting coverage across the selected period.", left: "1%", top: "9%", width: "98%", height: "10%" },
-  { marker: "B", label: "Compare the endpoints for trade value, growth and concentration.", left: "1%", top: "20%", width: "98%", height: "11%" },
-  { marker: "C", label: "Follow annual trade value and select a point for the exact figure.", left: "1%", top: "32%", width: "98%", height: "29%" },
-  { marker: "D", label: "Compare partner shares and changes in the HHI concentration measure.", left: "1%", top: "62%", width: "98%", height: "36%" },
+  { marker: "A", label: "Check reporting coverage across the selected period.", left: "1.4%", top: "9%", width: "97.2%", height: "8.6%" },
+  { marker: "B", label: "Compare the endpoints for trade value, growth and concentration.", left: "1.4%", top: "18.8%", width: "97.2%", height: "9.4%" },
+  { marker: "C", label: "Follow annual trade value and select a point for the exact figure.", left: "1.4%", top: "29.5%", width: "97.2%", height: "29.9%" },
+  { marker: "D", label: "Compare partner shares and changes in the HHI concentration measure.", left: "1.4%", top: "60.7%", width: "97.2%", height: "34.2%" },
 ];
 
 const VALUE_CHAIN_CALLOUTS = [
-  { marker: "A", label: "Choose the year, material focus and reporting basis.", left: "43%", top: "3.5%", width: "55.5%", height: "8%" },
-  { marker: "B", label: "Read the chart from material scope through the five trade stages to end users.", left: "1%", top: "22%", width: "98%", height: "10%" },
-  { marker: "C", label: "Follow the named bilateral relationships; remaining trade is grouped under Other economies.", left: "1%", top: "30.5%", width: "98%", height: "61%" },
-  { marker: "D", label: "Compare the full trade total reported for each stage.", left: "1%", top: "93.5%", width: "98%", height: "5.5%" },
+  { marker: "A", label: "Choose the year, material focus and reporting basis.", left: "56.5%", top: "4.6%", width: "41.4%", height: "6.7%" },
+  { marker: "B", label: "Read the chart from material scope through the five trade stages to end users.", left: "2%", top: "20.4%", width: "96%", height: "8.4%" },
+  { marker: "C", label: "Follow the named bilateral relationships; remaining trade is grouped under Other economies.", left: "2%", top: "28.4%", width: "96%", height: "63.5%" },
+  { marker: "D", label: "Compare the full trade total reported for each stage.", left: "2%", top: "92%", width: "96%", height: "5.1%" },
 ];
 
 const FILTER_DEFINITIONS = [{
   title: "Trade filters",
   items: [
     { term: "Product or group", description: "Selects one HS product, a predefined group or several compatible product codes. Overlapping broad and detailed codes cannot be combined." },
-    { term: "Economy", description: "Shows the selected economy’s reported trade. All economies combines available reporting economies." },
-    { term: "Reporting basis", description: "Imports uses reports submitted by importing economies; Exports uses reports submitted by exporting economies." },
+    { term: "Reporting economy", description: "Shows trade reported by the selected economy. All reporting economies combines reporters with available data." },
+    { term: "Reported by", description: "Importer uses declarations submitted by importing economies; Exporter uses declarations submitted by exporting economies." },
     { term: "Snapshot", description: "Shows one reporting year." },
     { term: "Trends", description: "Compares annual results across a selected period." },
     { term: "Routes shown", description: "Limits the map and table to the 25, 50 or 100 largest bilateral routes. It does not change headline totals or the full-value Sankey." },
@@ -102,6 +102,7 @@ const SNAPSHOT_DEFINITIONS = [{
     { term: "Supplier economy", description: "The origin economy in a bilateral relationship." },
     { term: "Importing economy", description: "The destination economy in a bilateral relationship." },
     { term: "Both roles", description: "An economy appearing as both a supplier and an importer in the displayed network." },
+    { term: "Direction at a selected economy", description: "Into and Out of describe the route direction at the economy selected on the map. This is separate from who reported the trade." },
     { term: "Other economies", description: "Relationships included in the Sankey total but not individually named." },
   ],
 }];

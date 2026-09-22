@@ -1532,7 +1532,7 @@ function RouteDetail({ route, productLabel, reportingMode, year, onClose }) {
       <div className="detail-scroll">
         <div className="route-value-block">
           <span>
-            {reportingMode === "exports" ? "Export" : "Import"} value reported by {reportingMode === "exports" ? route.supplierName : route.importerName}
+            Reported by {reportingMode === "exports" ? route.supplierName : route.importerName} as an {reportingMode === "exports" ? "export" : "import"}
           </span>
           <strong>{formatDetailedUsd(route.value)}</strong>
         </div>
@@ -2702,7 +2702,7 @@ export default function TradeExplorerApp() {
               <div class="map-popup__dot" style="background:#2563eb"></div>
               <div>
                 <strong>${escapeHtml(props.supplier)} → ${escapeHtml(props.importer)}</strong>
-                <span>Reported by the ${reportingModeRef.current === "exports" ? "exporting" : "importing"} economy</span>
+                <span>Reported by ${escapeHtml(reportingModeRef.current === "exports" ? props.supplier : props.importer)} as an ${reportingModeRef.current === "exports" ? "export" : "import"}</span>
                 <p>${escapeHtml(formatUsdThousand(Number(props.value), 2))}</p>
               </div>
             </div>`,
@@ -2947,7 +2947,7 @@ export default function TradeExplorerApp() {
             <span>
               <strong>Filters</strong>
               <small>
-                {selectedProductLabel} · {reportingMode === "exports" ? "Exports" : "Imports"} · {analysisView === "snapshot" ? year : `${trendStartYear}–${trendEndYear}`} · {countryEconomy?.name || "All economies"}
+                {selectedProductLabel} · {reportingMode === "exports" ? "Exporter-reported" : "Importer-reported"} · {analysisView === "snapshot" ? year : `${trendStartYear}–${trendEndYear}`} · {countryEconomy?.name || "All reporting economies"}
               </small>
             </span>
             <ChevronDown size={16} />
@@ -2964,7 +2964,7 @@ export default function TradeExplorerApp() {
           />
 
           <label className="select-wrap select-wrap--country">
-            <span>Economy</span>
+            <span>Reporting economy</span>
             <select
               value={countryEconomyIndex ?? ""}
               onChange={(event) => {
@@ -2974,9 +2974,9 @@ export default function TradeExplorerApp() {
                 setSelectedEconomyIndex(null);
                 setConnectionMode("all");
               }}
-              aria-label="Economy"
+              aria-label="Reporting economy"
             >
-              <option value="">All economies</option>
+              <option value="">All reporting economies</option>
               {countryOptions.map((economy) => (
                 <option key={economy.economyIndex} value={economy.economyIndex}>
                   {economy.name}
@@ -2986,8 +2986,8 @@ export default function TradeExplorerApp() {
             <ChevronDown size={15} />
           </label>
 
-          <div className="reporting-mode-filter" aria-label="Reporting basis">
-              <span>Reporting basis</span>
+          <div className="reporting-mode-filter" aria-label="Reported by">
+              <span>Reported by</span>
               <div>
                 <Segment
                   active={reportingMode === "imports"}
@@ -2997,7 +2997,7 @@ export default function TradeExplorerApp() {
                     setSelectedEconomyIndex(null);
                   }}
                 >
-                  Imports
+                  Importer
                 </Segment>
                 <Segment
                   active={reportingMode === "exports"}
@@ -3007,7 +3007,7 @@ export default function TradeExplorerApp() {
                     setSelectedEconomyIndex(null);
                   }}
                 >
-                  Exports
+                  Exporter
                 </Segment>
               </div>
           </div>
@@ -3157,17 +3157,17 @@ export default function TradeExplorerApp() {
             <div>
               <h1>
                 {countryEconomy ? `${countryEconomy.name} · ` : ""}
-                {`${reportingMode === "exports" ? "Export" : "Import"} ${
+                {`${reportingMode === "exports" ? "Exporter" : "Importer"}-reported ${
                   analysisView === "snapshot" ? "trade snapshot" : "trends"
                 }`}
               </h1>
               {analysisView === "snapshot" ? (
                 <p>
-                  {selectedProductLabel} · {year} · {reportingMode === "exports" ? "exporter" : "importer"}-reported data{countryEconomy ? ` for ${countryEconomy.name}` : ` from ${analysis.reporters} economies`}
+                  {selectedProductLabel} · {year}{countryEconomy ? ` · ${countryEconomy.name} reporting` : ` · ${analysis.reporters} reporting economies`} · Reporters: Worldwide · Partners: Worldwide
                 </p>
               ) : (
                 <p>
-                  {selectedProductLabel} · {trendStartYear}–{trendEndYear}{countryEconomy ? ` · ${countryEconomy.name}` : " · economies with complete annual data"}
+                  {selectedProductLabel} · {trendStartYear}–{trendEndYear}{countryEconomy ? ` · ${countryEconomy.name} reporting` : " · economies with complete annual data"} · Reporters: Worldwide · Partners: Worldwide
                 </p>
               )}
             </div>
@@ -3276,10 +3276,10 @@ export default function TradeExplorerApp() {
             <div className="result-pill">
               {selectedEconomy
                 ? connectionMode === "imports"
-                  ? `${mapPayload.lines.features.length} imports to ${selectedEconomy.name}`
+                  ? `${mapPayload.lines.features.length} incoming routes to ${selectedEconomy.name} · worldwide reporters`
                   : connectionMode === "exports"
-                    ? `${mapPayload.lines.features.length} exports from ${selectedEconomy.name}`
-                    : `${mapPayload.lines.features.length} routes for ${selectedEconomy.name}`
+                    ? `${mapPayload.lines.features.length} outgoing routes from ${selectedEconomy.name} · worldwide reporters`
+                    : `${mapPayload.lines.features.length} routes involving ${selectedEconomy.name} · worldwide reporters`
                 : `${mapPayload.lines.features.length} routes shown`}
             </div>
             {selectedEconomy ? (
@@ -3287,12 +3287,12 @@ export default function TradeExplorerApp() {
                 className="connection-mode-filter"
                 aria-label={`Connections for ${selectedEconomy.name}`}
               >
-                <span>Connection type</span>
+                <span>Direction at {selectedEconomy.name}</span>
                 <div>
                   {[
                     ["all", "All", selectedConnections.all.length],
-                    ["imports", "Imports", selectedConnections.imports.length],
-                    ["exports", "Exports", selectedConnections.exports.length],
+                    ["imports", "Into", selectedConnections.imports.length],
+                    ["exports", "Out of", selectedConnections.exports.length],
                   ].map(([mode, label, count]) => (
                     <Segment
                       key={mode}
@@ -3312,11 +3312,11 @@ export default function TradeExplorerApp() {
                 <>
                   <span>
                     <i className="legend-line legend-line--import" />
-                    Imports to {selectedEconomy.name}
+                    Incoming routes to {selectedEconomy.name}
                   </span>
                   <span>
                     <i className="legend-line legend-line--export" />
-                    Exports from {selectedEconomy.name}
+                    Outgoing routes from {selectedEconomy.name}
                   </span>
                 </>
               ) : null}
@@ -3325,7 +3325,7 @@ export default function TradeExplorerApp() {
               <span><i className="legend-both" />Both roles</span>
               <small>
                 {selectedEconomy
-                  ? "Node size shows total trade. Blue routes are imports to the selected economy; orange routes are exports from it. Reset the map to select another economy."
+                  ? "Node size shows total trade. Blue routes enter the selected economy; orange routes leave it. Reset the map to select another economy."
                   : `Click an economy to show its routes. Node size shows total trade; line width shows the ${reportingMode === "exports" ? "exporter" : "importer"}-reported value.`}
               </small>
             </div>
